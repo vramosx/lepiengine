@@ -1,20 +1,36 @@
 import 'dart:ui';
 
+import 'package:flutter/material.dart' show Colors, debugPrint;
 import 'package:lepiengine/engine/core/asset_loader.dart';
+import 'package:lepiengine/engine/core/collider.dart';
+import 'package:lepiengine/engine/core/collision_manager.dart';
 import 'package:lepiengine/engine/core/game_object.dart';
 import 'package:lepiengine/engine/core/scene.dart';
+import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
 import 'package:lepiengine/engine/game_objects/tilemap.dart';
 import 'package:lepiengine/engine/models/tileset.dart';
 import 'package:lepiengine_playground/examples/utils/constants.dart';
+import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'});
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
 
   @override
   void onEnter() {
     super.onEnter();
     final platformMap = PlatformMap();
     add(platformMap);
+
+    _loadPlayer();
+  }
+
+  Future<void> _loadPlayer() async {
+    final playerSprite = await AssetLoader.loadImage(Constants.character);
+    final player = Player(image: playerSprite);
+    player.position = const Offset(100, 200);
+    player.size = const Size(48, 48);
+    add(player);
+    player.play('idle');
   }
 }
 
@@ -31,6 +47,11 @@ class PlatformMap extends GameObject {
   }
 
   Future<void> _loadScene() async {
+    await _loadTilemap();
+  }
+
+  Future<void> _loadTilemap() async {
+    final platformTilemap = await readJson(Constants.platformTilemap);
     final backgroundImage = await AssetLoader.loadImage(Constants.background);
     final backgroundTileset = Tileset(
       image: backgroundImage,
@@ -46,44 +67,201 @@ class PlatformMap extends GameObject {
       (index) => List.generate(50, (index) => 0),
     );
 
-    final map = [
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-      [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
-      [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],
-      [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43],
-      [44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54],
-      [55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65],
-      [66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76],
-      [77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87],
-      [88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98],
-      [99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
-      [110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120],
-      [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131],
-      [132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142],
-      [143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153],
-      [154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164],
-      [165, 166, 167, 168, 169, 170, 171, 172, 173, 174],
-    ];
-
     final backgroundTilemap = Tilemap(
       tileset: backgroundTileset,
       map: backgroundMap,
       position: const Offset(0, 0),
     );
 
+    final rawTiles = platformTilemap['tiles'] as List<dynamic>;
+
+    final map = rawTiles
+        .map<List<int>>(
+          (row) => (row as List<dynamic>).map<int>((e) => e as int).toList(),
+        )
+        .toList();
+
+    final solidRawTiles = platformTilemap['collisions'] as List<dynamic>;
+    Set<int> solidTiles = Set.from(solidRawTiles.map<int>((e) => e as int));
+
     final tilemap = Tilemap(
       tileset: tileset,
       map: map,
       position: const Offset(0, 0),
       debugCollisions: true,
-      solidTiles: {174},
+      solidTiles: solidTiles,
     );
     addChild(backgroundTilemap);
     addChild(tilemap);
   }
 
   @override
-  void render(Canvas canvas) {
-    // TODO: implement render
+  void render(Canvas canvas) {}
+}
+
+class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
+  Player({super.name = 'Player', required super.image}) : super() {
+    addAABBCollider(
+      size: Size(32, 32),
+      anchor: ColliderAnchor.bottomCenter,
+      offset: Offset(
+        0,
+        8,
+      ), // Ajusta para alinhar com a parte inferior do sprite
+      debugColor: Colors.blue,
+    );
+
+    gravity = 0;
+    // maxFallSpeed = 500;
+  }
+
+  double coyoteTime = 0.0;
+  final double maxCoyoteTime = 0.1;
+  bool isGrounded = false;
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+
+    // Atualiza coyote time (lógica específica de plataforma)
+    if (isGrounded) {
+      coyoteTime = maxCoyoteTime;
+    } else {
+      coyoteTime = (coyoteTime - dt).clamp(0.0, maxCoyoteTime);
+    }
+  }
+
+  @override
+  void onCollisionEnter(GameObject other, CollisionInfo collision) {
+    debugPrint('Collision enter: ${other.runtimeType}');
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    
+    // Debug: vamos verificar as posições
+    debugPrint('Player position: $position');
+    debugPrint('Player size: $size');
+    debugPrint('Player worldPosition: ${localToWorld(Offset.zero)}');
+    
+    // Vamos também verificar a posição do collider
+    if (colliders.isNotEmpty) {
+      final collider = colliders.first;
+      debugPrint('Collider worldPosition: ${collider.worldPosition}');
+      debugPrint('Collider AABB: ${collider.getAABB()}');
+    }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    var row = 0;
+    addAnimation(
+      SpriteAnimation(
+        name: 'run',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+          Frame(col: 6, row: row),
+          Frame(col: 7, row: row),
+          Frame(col: 8, row: row),
+          Frame(col: 9, row: row),
+          Frame(col: 10, row: row),
+          Frame(col: 11, row: row),
+        ],
+      ),
+    );
+
+    row = 1;
+    addAnimation(
+      SpriteAnimation(
+        name: 'hit',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+          Frame(col: 6, row: row),
+        ],
+      ),
+    );
+
+    row = 2;
+    addAnimation(
+      SpriteAnimation(
+        name: 'doubleJump',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+        ],
+      ),
+    );
+
+    row = 3;
+    addAnimation(
+      SpriteAnimation(
+        name: 'idle',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+          Frame(col: 6, row: row),
+          Frame(col: 7, row: row),
+          Frame(col: 8, row: row),
+          Frame(col: 9, row: row),
+          Frame(col: 10, row: row),
+        ],
+      ),
+    );
+
+    row = 4;
+    addAnimation(
+      SpriteAnimation(
+        name: 'wallJump',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+        ],
+      ),
+    );
+
+    row = 5;
+    addAnimation(
+      SpriteAnimation(
+        name: 'jump',
+        frameSize: Size(32, 32),
+        frames: [Frame(col: 0, row: row)],
+      ),
+    );
+
+    row = 6;
+    addAnimation(
+      SpriteAnimation(
+        name: 'fall',
+        frameSize: Size(32, 32),
+        frames: [Frame(col: 0, row: row)],
+      ),
+    );
   }
 }

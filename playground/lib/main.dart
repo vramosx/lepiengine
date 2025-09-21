@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lepiengine/main.dart';
 import 'package:lepiengine_playground/examples/platform_game.dart';
+import 'package:lepiengine_playground/tilemap_editor/tilemap_editor_screen.dart';
 
 void main() {
   runApp(const MyGame());
@@ -17,7 +18,7 @@ class _MyGameState extends State<MyGame> {
   String selectedScene = 'PlatformGame';
   final platformGame = PlatformGame();
 
-  final scenes = ['PlatformGame'];
+  final scenes = ['PlatformGame', 'TilemapEditor'];
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +51,9 @@ class _MyGameState extends State<MyGame> {
             ),
           ],
         ),
-        body: LepiGame(scenes: [platformGame], initialScene: 'PlatformGame'),
+        body: selectedScene == 'TilemapEditor'
+            ? const TilemapEditorScreen()
+            : LepiGame(scenes: [platformGame], initialScene: 'PlatformGame'),
       ),
     );
   }
