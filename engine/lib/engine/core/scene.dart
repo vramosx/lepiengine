@@ -54,6 +54,7 @@ class Scene {
 
   bool active = true; // controla se update() roda
   bool visible = true; // controla se render() desenha
+  bool mounted = false;
 
   // ---- Ciclo de vida da própria cena (SceneManager chamará) ----
   void onEnter() {} // chamada quando a cena se torna ativa
@@ -92,11 +93,28 @@ class Scene {
   void add(GameObject obj, {String layer = 'entities'}) {
     final l = ensureLayer(layer);
     l.add(obj);
+
+    // Configura callback para registrar novos colliders automaticamente
+    obj.setColliderAddedCallback((collider) {
+      collisionManager.addCollider(collider);
+    });
+
     obj.onAdd();
 
-    // Registra todos os colliders do objeto no sistema de colisão
+    // Registra todos os colliders do objeto no sistema de colisão (incluindo filhos)
+    _registerCollidersRecursively(obj);
+  }
+
+  /// Registra todos os colliders de um objeto e seus filhos recursivamente
+  void _registerCollidersRecursively(GameObject obj) {
+    // Registra colliders do objeto atual
     for (final collider in obj.colliders) {
       collisionManager.addCollider(collider);
+    }
+
+    // Registra colliders dos filhos recursivamente
+    for (final child in obj.children) {
+      _registerCollidersRecursively(child);
     }
   }
 
@@ -109,6 +127,8 @@ class Scene {
         for (final collider in obj.colliders) {
           collisionManager.removeCollider(collider);
         }
+        // Limpa o callback
+        obj.setColliderAddedCallback(null);
         obj.onRemove();
         return true;
       }
@@ -169,7 +189,7 @@ class Scene {
     return null;
   }
 
-  /// Lista todos por tipo T (ex.: scene.query<Enemy>()).
+  /// Lista todos por tipo T.
   List<T> query<T extends GameObject>() {
     final out = <T>[];
     for (final l in _layers.values) {
@@ -305,9 +325,9 @@ class Scene {
 
       for (final o in objectsInLayer) {
         // Culling: só renderiza objetos visíveis na câmera
-        if (canvasSize != null && !camera.isGameObjectVisible(o, viewport)) {
-          continue;
-        }
+        // if (canvasSize != null && !camera.isGameObjectVisible(o, viewport)) {
+        //   continue;
+        // }
         o.renderTree(canvas);
       }
     }

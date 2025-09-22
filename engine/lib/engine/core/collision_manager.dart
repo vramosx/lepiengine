@@ -105,14 +105,9 @@ class CollisionManager {
       return;
     }
 
-    // print(
-    //   '_checkCollisionPair: ${a.gameObject.runtimeType} vs ${b.gameObject.runtimeType}',
-    // );
-
     final collision = a.getIntersection(b);
     if (collision != null) {
       final key = _getCollisionKey(a, b);
-      // print('_checkCollisionPair: Normal calculada: ${collision.normal}');
 
       // Armazena informação sobre ambos os colliders
       currentCollisions[key] = CollisionInfo(

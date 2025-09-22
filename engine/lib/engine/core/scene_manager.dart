@@ -26,7 +26,13 @@ class SceneManager {
     final scene = _scenes.firstWhere((s) => s.name == name);
     current?.onExit();
     _currentScene = scene;
-    scene.onEnter();
+    if (!scene.mounted) {
+      scene.mounted = true;
+      scene.onEnter();
+    } else {
+      scene.clearAll();
+      scene.onEnter();
+    }
   }
 
   void clearAllScenes() {

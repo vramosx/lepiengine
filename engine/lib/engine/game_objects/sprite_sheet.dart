@@ -134,7 +134,12 @@ class SpriteSheet extends GameObject {
     final frameRect = _currentAnimation!.calculatedFrames[_currentFrame];
 
     final paint = Paint();
-    final dstRect = position & size;
+
+    // Usa o sistema de coordenadas local do GameObject (0,0 com anchor aplicado)
+    // O canvas já está transformado pela renderTree() do GameObject
+    final left = -size.width * anchor.dx;
+    final top = -size.height * anchor.dy;
+    final dstRect = Rect.fromLTWH(left, top, size.width, size.height);
 
     canvas.drawImageRect(image, frameRect, dstRect, paint);
   }

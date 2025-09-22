@@ -1,10 +1,13 @@
 import 'dart:ui';
 
-import 'package:flutter/material.dart' show Colors, debugPrint;
+import 'package:flutter/material.dart'
+    show Colors, debugPrint, TextPainter, TextSpan;
 import 'package:lepiengine/engine/core/asset_loader.dart';
+import 'package:lepiengine/engine/core/audio_manager.dart';
 import 'package:lepiengine/engine/core/collider.dart';
 import 'package:lepiengine/engine/core/collision_manager.dart';
 import 'package:lepiengine/engine/core/game_object.dart';
+import 'package:lepiengine/engine/core/input_manager.dart';
 import 'package:lepiengine/engine/core/scene.dart';
 import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
 import 'package:lepiengine/engine/game_objects/tilemap.dart';
@@ -13,24 +16,32 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
 
   @override
   void onEnter() {
     super.onEnter();
     final platformMap = PlatformMap();
-    add(platformMap);
+    add(platformMap, layer: 'map');
 
     _loadPlayer();
+
+    setLayerOrder("map", 0);
+
+    AudioManager.instance.playMusic(Constants.backgroundMusic);
+
+    add(DebugText(text: 'Debug Text', position: const Offset(100, 200)));
   }
 
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
     final player = Player(image: playerSprite);
-    player.position = const Offset(100, 200);
+    player.position = const Offset(100, 368);
     player.size = const Size(48, 48);
     add(player);
     player.play('idle');
+    setLayerOrder("entities", 3);
+    camera.follow(player);
   }
 }
 
@@ -43,6 +54,7 @@ class PlatformMap extends GameObject {
   @override
   void onAdd() {
     super.onAdd();
+
     _loadScene();
   }
 
@@ -84,13 +96,7 @@ class PlatformMap extends GameObject {
     final solidRawTiles = platformTilemap['collisions'] as List<dynamic>;
     Set<int> solidTiles = Set.from(solidRawTiles.map<int>((e) => e as int));
 
-    final tilemap = Tilemap(
-      tileset: tileset,
-      map: map,
-      position: const Offset(0, 0),
-      debugCollisions: true,
-      solidTiles: solidTiles,
-    );
+    final tilemap = Tilemap(tileset: tileset, map: map, solidTiles: solidTiles);
     addChild(backgroundTilemap);
     addChild(tilemap);
   }
@@ -99,25 +105,44 @@ class PlatformMap extends GameObject {
   void render(Canvas canvas) {}
 }
 
+class DebugText extends GameObject {
+  final String text;
+  DebugText({super.name = 'DebugText', required this.text, super.position});
+
+  @override
+  void render(Canvas canvas) {
+    final textPainter = TextPainter(
+      text: TextSpan(text: text),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, position);
+  }
+}
+
 class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   Player({super.name = 'Player', required super.image}) : super() {
     addAABBCollider(
-      size: Size(32, 32),
-      anchor: ColliderAnchor.bottomCenter,
-      offset: Offset(
-        0,
-        8,
-      ), // Ajusta para alinhar com a parte inferior do sprite
+      size: Size(48, 48),
+      anchor: ColliderAnchor.topLeft,
       debugColor: Colors.blue,
     );
 
-    gravity = 0;
-    // maxFallSpeed = 500;
+    gravity = 800;
+    maxFallSpeed = 500;
   }
 
   double coyoteTime = 0.0;
   final double maxCoyoteTime = 0.1;
   bool isGrounded = false;
+  final double moveSpeed = 150.0;
+  final double jumpForce = -350.0;
+  bool isFlipped = false;
+
+  void flip() {
+    isFlipped = !isFlipped;
+    scale = Offset(scale.dx * -1, scale.dy);
+  }
 
   @override
   void update(double dt) {
@@ -129,28 +154,72 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     } else {
       coyoteTime = (coyoteTime - dt).clamp(0.0, maxCoyoteTime);
     }
+
+    _handleInput();
+  }
+
+  void _handleInput() {
+    // Movimento horizontal
+    double horizontal = 0.0;
+    if (InputManager.instance.isPressed('KeyA') ||
+        InputManager.instance.isPressed('Arrow Left')) {
+      horizontal = -1.0;
+      if (!isFlipped) {
+        flip();
+      }
+    }
+    if (InputManager.instance.isPressed('KeyD') ||
+        InputManager.instance.isPressed('Arrow Right')) {
+      horizontal = 1.0;
+      if (isFlipped) {
+        flip();
+      }
+    }
+
+    // Movimento normal
+    setVelocity(Offset(horizontal * moveSpeed, velocity.dy));
+
+    // Pulo (lógica específica de plataforma)
+    final jumpPressed =
+        InputManager.instance.isPressed('KeyW') ||
+        InputManager.instance.isPressed('Arrow Up') ||
+        InputManager.instance.isPressed('Space');
+
+    if (jumpPressed) {
+      if (isGrounded) {
+        AudioManager.instance.playSound('jump.mp3');
+        setVelocity(Offset(velocity.dx, jumpForce));
+        coyoteTime = 0.0;
+        isGrounded = false;
+      } else {}
+    }
   }
 
   @override
   void onCollisionEnter(GameObject other, CollisionInfo collision) {
-    debugPrint('Collision enter: ${other.runtimeType}');
+    debugPrint(
+      'Collision enter: ${other.runtimeType} - Normal: ${collision.normal}',
+    );
+
+    if (other.runtimeType == Tilemap) {
+      isGrounded = true;
+      debugPrint("collision enter: ${collision.normal.dy}");
+    }
+
+    // Verifica se é uma colisão com o chão (normal apontando para cima)
+    if (collision.normal.dy < -0.7) {
+      // Normal apontando para cima (chão)
+    }
   }
 
   @override
-  void onAdd() {
-    super.onAdd();
-    
-    // Debug: vamos verificar as posições
-    debugPrint('Player position: $position');
-    debugPrint('Player size: $size');
-    debugPrint('Player worldPosition: ${localToWorld(Offset.zero)}');
-    
-    // Vamos também verificar a posição do collider
-    if (colliders.isNotEmpty) {
-      final collider = colliders.first;
-      debugPrint('Collider worldPosition: ${collider.worldPosition}');
-      debugPrint('Collider AABB: ${collider.getAABB()}');
+  void onCollisionStay(GameObject other, CollisionInfo collision) {
+    // Mantém isGrounded enquanto estiver colidindo com o chão
+    if (collision.normal.dy < -0.7) {
+      isGrounded = true;
+      setVelocity(Offset.zero);
     }
+  }
 
   @override
   void onAdd() {

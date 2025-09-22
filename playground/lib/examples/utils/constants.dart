@@ -9,7 +9,7 @@ class Constants {
   static const String obstacle = 'objects/Obstacle.png';
   static const String pointerIdle = 'objects/Pointer_Idle.png';
   static const String tileset = 'tileset/Tileset.png';
-  static const String backgroundMusic = 'music/background.mp3';
+  static const String backgroundMusic = 'background.mp3';
   static const String jumpSound = 'sounds/jump.mp3';
   // static const String coinSound = 'sounds/Coin.mp3';
   // static const String hitSound = 'sounds/Hit.mp3';

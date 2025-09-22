@@ -210,11 +210,9 @@ class Camera {
 
     // Sistema de follow com interpolação frame-rate aware
     if (_followTarget != null) {
-      final targetPos = _followTarget!.localToWorld(
-        Offset(
-          _followTarget!.size.width * 0.5,
-          _followTarget!.size.height * 0.5,
-        ),
+      final targetPos = Offset(
+        _followTarget!.position.dx,
+        _followTarget!.position.dy,
       );
 
       // Interpolação exponencial frame-rate independent

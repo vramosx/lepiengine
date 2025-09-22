@@ -135,6 +135,10 @@ class AABBCollider extends Collider {
     final pos = worldPosition;
     final anchorPos = anchorOffset;
 
+    // if (size.width == 48) {
+    //   print('AABB Debug: size.width: ${size.width}');
+    // }
+
     final left = pos.dx - (size.width * anchorPos.dx);
     final top = pos.dy - (size.height * anchorPos.dy);
 
@@ -192,7 +196,6 @@ class AABBCollider extends Collider {
     final double penetrationDepth;
 
     // CORREÇÃO: Para plataformas, priorize separação vertical se há overlap significativo
-    final isPlayerAbovePlatform = rect1.center.dy < rect2.center.dy;
     final hasVerticalOverlap = overlapY > 5.0; // Threshold mínimo
 
     if (hasVerticalOverlap) {

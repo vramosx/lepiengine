@@ -52,6 +52,19 @@ abstract class GameObject {
   final List<Collider> _colliders = <Collider>[];
   List<Collider> get colliders => List.unmodifiable(_colliders);
 
+  // Callback para quando colliders são adicionados dinamicamente
+  void Function(Collider)? _onColliderAdded;
+
+  /// Configura callback para quando novos colliders são adicionados
+  void setColliderAddedCallback(void Function(Collider)? callback) {
+    _onColliderAdded = callback;
+
+    // Propaga recursivamente para todos os filhos
+    for (final child in _children) {
+      child.setColliderAddedCallback(callback);
+    }
+  }
+
   /// Retorna o bounds (AABB) no espaço local.
   Rect get bounds => position & size;
 
@@ -131,7 +144,18 @@ abstract class GameObject {
     assert(child._parent == null, 'O objeto já possui um pai.');
     child._parent = this;
     _children.add(child);
+
+    // Propaga o callback de collider para o filho
+    child._onColliderAdded = _onColliderAdded;
+
     child.onAdd();
+
+    // Registra colliders existentes do filho
+    if (_onColliderAdded != null) {
+      for (final collider in child.colliders) {
+        _onColliderAdded!.call(collider);
+      }
+    }
   }
 
   /// Remove filho e dispara onRemove.
@@ -252,6 +276,8 @@ abstract class GameObject {
   /// Adiciona um collider ao GameObject
   void addCollider(Collider collider) {
     _colliders.add(collider);
+    // Notifica o sistema de colisão se o objeto já está na cena
+    _onColliderAdded?.call(collider);
   }
 
   /// Remove um collider do GameObject
