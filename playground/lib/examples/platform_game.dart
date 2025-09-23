@@ -17,7 +17,7 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
 
   @override
   void onEnter() {
@@ -29,11 +29,20 @@ class PlatformGame extends Scene {
 
     _loadPointerIdle();
 
+    _loadJumper();
+
     setLayerOrder("map", 0);
 
-    // AudioManager.instance.playMusic(Constants.backgroundMusic);
+    AudioManager.instance.playMusic(Constants.backgroundMusic);
 
     // add(DebugText(text: 'Debug Text', position: const Offset(100, 200)));
+  }
+
+  Future<void> _loadJumper() async {
+    final jumperSprite = await AssetLoader.loadImage(Constants.jumper);
+    final jumper = Jumper(image: jumperSprite);
+    jumper.position = const Offset(350, 465);
+    add(jumper);
   }
 
   Future<void> _loadPointerIdle() async {
@@ -43,7 +52,7 @@ class PlatformGame extends Scene {
     final pointerIdle = PointerIdle(image: pointerIdleSprite);
     pointerIdle.position = const Offset(100, 450);
     add(pointerIdle, layer: 'frontPlayer');
-    setLayerOrder("frontPlayer", 4);
+    setLayerOrder("frontPlayer", 2);
   }
 
   Future<void> _loadPlayer() async {
@@ -214,13 +223,19 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     // Removido: não marca grounded só por colidir com Tilemap; usa lado.
 
     if (collision.selfSide == CollisionSide.bottom) {
-      SceneManager.instance.current?.camera.lightShake();
     } else if (collision.selfSide == CollisionSide.top) {
       debugPrint("collision top: ${collision.selfSide}");
     } else if (collision.selfSide == CollisionSide.left) {
       debugPrint("collision left: ${collision.selfSide}");
     } else if (collision.selfSide == CollisionSide.right) {
       debugPrint("collision right: ${collision.selfSide}");
+    }
+
+    if (collision.selfSide == CollisionSide.bottom) {
+      if (other is Jumper) {
+        SceneManager.instance.current?.camera.lightShake();
+        setVelocity(Offset(velocity.dx, jumpForce * 2));
+      }
     }
   }
 
@@ -381,5 +396,60 @@ class PointerIdle extends SpriteSheet {
   void onAdd() {
     super.onAdd();
     play('idle');
+  }
+}
+
+class Jumper extends SpriteSheet with CollisionCallbacks {
+  Jumper({
+    super.name = 'Jumper',
+    required super.image,
+    super.size = const Size(48, 48),
+  }) : super() {
+    addAABBCollider(
+      size: Size(48, 16),
+      anchor: ColliderAnchor.bottomCenter,
+      debugColor: Colors.green,
+    );
+
+    addAnimation(
+      SpriteAnimation(
+        name: 'idle',
+        frameSize: Size(48, 48),
+        frames: [Frame(col: 0, row: 0)],
+      ),
+    );
+
+    addAnimation(
+      SpriteAnimation(
+        name: 'jump',
+        frameSize: Size(48, 48),
+        frames: [
+          Frame(col: 2, row: 0),
+          Frame(col: 3, row: 0),
+          Frame(col: 4, row: 0),
+          Frame(col: 5, row: 0),
+          Frame(col: 6, row: 0),
+        ],
+        frameDuration: 0.1,
+        loop: false,
+        onEnd: () {
+          play('idle');
+        },
+      ),
+    );
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    play('idle');
+  }
+
+  @override
+  void onCollisionEnter(GameObject other, CollisionInfo collision) {
+    super.onCollisionEnter(other, collision);
+    if (collision.selfSide == CollisionSide.top) {
+      play('jump');
+    }
   }
 }

@@ -73,6 +73,12 @@ class _LepiGameState extends State<LepiGame> {
     );
   }
 
+  @override
+  void reassemble() {
+    super.reassemble();
+    _initScenes();
+  }
+
   void _initScenes() {
     // limpa todas as cenas
     SceneManager.instance.clearAllScenes();
