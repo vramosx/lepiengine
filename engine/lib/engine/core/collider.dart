@@ -82,7 +82,15 @@ abstract class Collider {
 
   /// Retorna a posição do collider no mundo
   Offset get worldPosition {
-    final gameObjectPos = gameObject.localToWorld(Offset.zero);
+    // Alinha o ponto de ancoragem do collider ao ponto correspondente
+    // dentro do GameObject. Assim, por exemplo, um collider com
+    // anchor bottomCenter ficará preso ao bottomCenter do objeto.
+    final Offset attachPointInLocal = Offset(
+      gameObject.size.width * anchorOffset.dx,
+      gameObject.size.height * anchorOffset.dy,
+    );
+
+    final gameObjectPos = gameObject.localToWorld(attachPointInLocal);
     return gameObjectPos + offset;
   }
 

@@ -17,7 +17,7 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
 
   @override
   void onEnter() {
@@ -136,7 +136,7 @@ class DebugText extends GameObject {
 class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   Player({super.name = 'Player', required super.image}) : super() {
     addAABBCollider(
-      size: Size(48, 48),
+      size: Size(30, 42),
       anchor: ColliderAnchor.bottomCenter,
       debugColor: Colors.blue,
     );
@@ -170,7 +170,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
 
     if (jumpPressed) {
       if (isGrounded) {
-        AudioManager.instance.playSound('jump.mp3');
+        // AudioManager.instance.playSound('jump.mp3');
         play('jump');
         setVelocity(Offset(velocity.dx, jumpForce));
         isGrounded = false;
