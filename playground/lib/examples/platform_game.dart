@@ -16,7 +16,7 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
 
   @override
   void onEnter() {
@@ -28,7 +28,7 @@ class PlatformGame extends Scene {
 
     setLayerOrder("map", 0);
 
-    AudioManager.instance.playMusic(Constants.backgroundMusic);
+    // AudioManager.instance.playMusic(Constants.backgroundMusic);
 
     add(DebugText(text: 'Debug Text', position: const Offset(100, 200)));
   }
@@ -36,7 +36,7 @@ class PlatformGame extends Scene {
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
     final player = Player(image: playerSprite);
-    player.position = const Offset(100, 368);
+    player.position = const Offset(650, 400);
     player.size = const Size(48, 48);
     add(player);
     player.play('idle');
@@ -159,27 +159,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   }
 
   void _handleInput() {
-    // Movimento horizontal
-    double horizontal = 0.0;
-    if (InputManager.instance.isPressed('KeyA') ||
-        InputManager.instance.isPressed('Arrow Left')) {
-      horizontal = -1.0;
-      if (!isFlipped) {
-        flip();
-      }
-    }
-    if (InputManager.instance.isPressed('KeyD') ||
-        InputManager.instance.isPressed('Arrow Right')) {
-      horizontal = 1.0;
-      if (isFlipped) {
-        flip();
-      }
-    }
-
-    // Movimento normal
-    setVelocity(Offset(horizontal * moveSpeed, velocity.dy));
-
-    // Pulo (lógica específica de plataforma)
+    // Pulo (lógica específica de plataforma)// Pulo (lógica específica de plataforma)
     final jumpPressed =
         InputManager.instance.isPressed('KeyW') ||
         InputManager.instance.isPressed('Arrow Up') ||
@@ -192,10 +172,33 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
         setVelocity(Offset(velocity.dx, jumpForce));
         coyoteTime = 0.0;
         isGrounded = false;
+        return;
       } else {}
     }
 
-    if (isGrounded) {
+    // Movimento horizontal
+    double horizontal = 0.0;
+    if (InputManager.instance.isPressed('KeyA') ||
+        InputManager.instance.isPressed('Arrow Left')) {
+      horizontal = -1.0;
+      play('run');
+      if (!isFlipped) {
+        flip();
+      }
+    }
+    if (InputManager.instance.isPressed('KeyD') ||
+        InputManager.instance.isPressed('Arrow Right')) {
+      horizontal = 1.0;
+      play('run');
+      if (isFlipped) {
+        flip();
+      }
+    }
+
+    // Movimento normal
+    setVelocity(Offset(horizontal * moveSpeed, velocity.dy));
+
+    if (isGrounded && horizontal == 0) {
       play('idle');
     }
   }
@@ -206,23 +209,26 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       'Collision enter: ${other.runtimeType} - Normal: ${collision.normal}',
     );
 
-    if (other.runtimeType == Tilemap) {
-      isGrounded = true;
-      debugPrint("collision enter: ${collision.normal.dy}");
-    }
+    // Removido: não marca grounded só por colidir com Tilemap; usa lado.
 
-    // Verifica se é uma colisão com o chão (normal apontando para cima)
-    if (collision.normal.dy < -0.7) {
-      // Normal apontando para cima (chão)
+    if (collision.selfSide == CollisionSide.bottom) {
+      debugPrint("collision bottom: ${collision.selfSide}");
+    } else if (collision.selfSide == CollisionSide.top) {
+      debugPrint("collision top: ${collision.selfSide}");
+    } else if (collision.selfSide == CollisionSide.left) {
+      debugPrint("collision left: ${collision.selfSide}");
+    } else if (collision.selfSide == CollisionSide.right) {
+      debugPrint("collision right: ${collision.selfSide}");
     }
   }
 
   @override
   void onCollisionStay(GameObject other, CollisionInfo collision) {
     // Mantém isGrounded enquanto estiver colidindo com o chão
-    if (collision.normal.dy < -0.7) {
+    if (collision.selfSide == CollisionSide.bottom) {
       isGrounded = true;
-      setVelocity(Offset.zero);
+      // Zera somente a componente vertical para não matar o movimento horizontal
+      setVelocity(Offset(velocity.dx, 0));
     }
   }
 

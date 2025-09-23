@@ -94,6 +94,37 @@ class CollisionManager {
     _processCollisionCallbacks(currentCollisions);
   }
 
+  // ---- Helpers de lado de colisão ----
+  CollisionSide _oppositeSide(CollisionSide side) {
+    switch (side) {
+      case CollisionSide.top:
+        return CollisionSide.bottom;
+      case CollisionSide.bottom:
+        return CollisionSide.top;
+      case CollisionSide.left:
+        return CollisionSide.right;
+      case CollisionSide.right:
+        return CollisionSide.left;
+      case CollisionSide.unknown:
+        return CollisionSide.unknown;
+    }
+  }
+
+  CollisionSide _sideFromNormal(Offset normal) {
+    const double epsilon = 1e-5;
+    final double ax = normal.dx.abs();
+    final double ay = normal.dy.abs();
+
+    if (ax < epsilon && ay < epsilon) return CollisionSide.unknown;
+
+    if (ax > ay) {
+      return normal.dx > 0 ? CollisionSide.left : CollisionSide.right;
+    } else {
+      // Empate ou predominante em Y → usa vertical
+      return normal.dy > 0 ? CollisionSide.top : CollisionSide.bottom;
+    }
+  }
+
   /// Verifica colisão entre um par de colliders
   void _checkCollisionPair(
     Collider a,
@@ -168,8 +199,8 @@ class CollisionManager {
           !colliderB.isTrigger &&
           !colliderA.isStatic) {
         final correctNormal = needsInversion ? normalForB : normalForA;
-        // print('CollisionManager: Normal corrigida para A: $correctNormal');
-
+        final selfSide = _sideFromNormal(correctNormal);
+        final otherSide = _oppositeSide(selfSide);
         gameObjectA.resolveCollision(
           gameObjectB,
           CollisionInfo(
@@ -178,6 +209,8 @@ class CollisionManager {
             normal: correctNormal,
             penetrationDepth: collision.penetrationDepth,
             isEntering: collision.isEntering,
+            selfSide: selfSide,
+            otherSide: otherSide,
           ),
         );
       }
@@ -186,8 +219,8 @@ class CollisionManager {
           !colliderA.isTrigger &&
           !colliderB.isStatic) {
         final correctNormal = needsInversion ? normalForA : normalForB;
-        // print('CollisionManager: Normal corrigida para B: $correctNormal');
-
+        final selfSide = _sideFromNormal(correctNormal);
+        final otherSide = _oppositeSide(selfSide);
         gameObjectB.resolveCollision(
           gameObjectA,
           CollisionInfo(
@@ -196,6 +229,8 @@ class CollisionManager {
             normal: correctNormal,
             penetrationDepth: collision.penetrationDepth,
             isEntering: collision.isEntering,
+            selfSide: selfSide,
+            otherSide: otherSide,
           ),
         );
       }
@@ -252,26 +287,41 @@ class CollisionManager {
     final gameObjectA = colliderA.gameObject;
     final gameObjectB = colliderB.gameObject;
 
+    // Ajuste: normal armazenada pode estar relativa ao outro collider devido à ordenação da chave.
+    final bool needsInversion = collision.other == colliderA;
+    final Offset normalForA = needsInversion
+        ? Offset(-collision.normal.dx, -collision.normal.dy)
+        : collision.normal;
+    final Offset normalForB = Offset(-normalForA.dx, -normalForA.dy);
+
     // Callback para A
     if (gameObjectA is CollisionCallbacks) {
+      final selfSideA = _sideFromNormal(normalForA);
+      final otherSideA = _oppositeSide(selfSideA);
       final collisionForA = CollisionInfo(
         other: colliderB,
         intersectionPoint: collision.intersectionPoint,
-        normal: collision.normal,
+        normal: normalForA,
         penetrationDepth: collision.penetrationDepth,
         isEntering: true,
+        selfSide: selfSideA,
+        otherSide: otherSideA,
       );
       gameObjectA.onCollisionEnter(gameObjectB, collisionForA);
     }
 
     // Callback para B
     if (gameObjectB is CollisionCallbacks) {
+      final selfSideB = _sideFromNormal(normalForB);
+      final otherSideB = _oppositeSide(selfSideB);
       final collisionForB = CollisionInfo(
         other: colliderA,
         intersectionPoint: collision.intersectionPoint,
-        normal: Offset(-collision.normal.dx, -collision.normal.dy),
+        normal: normalForB,
         penetrationDepth: collision.penetrationDepth,
         isEntering: true,
+        selfSide: selfSideB,
+        otherSide: otherSideB,
       );
       gameObjectB.onCollisionEnter(gameObjectA, collisionForB);
     }
@@ -287,26 +337,41 @@ class CollisionManager {
     final gameObjectA = colliderA.gameObject;
     final gameObjectB = colliderB.gameObject;
 
+    // Ajuste: normal armazenada pode estar relativa ao outro collider devido à ordenação da chave.
+    final bool needsInversion = collision.other == colliderA;
+    final Offset normalForA = needsInversion
+        ? Offset(-collision.normal.dx, -collision.normal.dy)
+        : collision.normal;
+    final Offset normalForB = Offset(-normalForA.dx, -normalForA.dy);
+
     // Callback para A
     if (gameObjectA is CollisionCallbacks) {
+      final selfSideA = _sideFromNormal(normalForA);
+      final otherSideA = _oppositeSide(selfSideA);
       final collisionForA = CollisionInfo(
         other: colliderB,
         intersectionPoint: collision.intersectionPoint,
-        normal: collision.normal,
+        normal: normalForA,
         penetrationDepth: collision.penetrationDepth,
         isEntering: false,
+        selfSide: selfSideA,
+        otherSide: otherSideA,
       );
       gameObjectA.onCollisionStay(gameObjectB, collisionForA);
     }
 
     // Callback para B
     if (gameObjectB is CollisionCallbacks) {
+      final selfSideB = _sideFromNormal(normalForB);
+      final otherSideB = _oppositeSide(selfSideB);
       final collisionForB = CollisionInfo(
         other: colliderA,
         intersectionPoint: collision.intersectionPoint,
-        normal: Offset(-collision.normal.dx, -collision.normal.dy),
+        normal: normalForB,
         penetrationDepth: collision.penetrationDepth,
         isEntering: false,
+        selfSide: selfSideB,
+        otherSide: otherSideB,
       );
       gameObjectB.onCollisionStay(gameObjectA, collisionForB);
     }

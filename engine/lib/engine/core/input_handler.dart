@@ -186,16 +186,13 @@ class _InputHandlerState extends State<InputHandler> {
 
           if (event is KeyDownEvent) {
             if (!InputManager.instance.isPressed(key)) {
-              debugPrint('keyDown: $key');
               InputManager.instance.keyDown(key);
               _dispatchKeyDown(key);
             }
           } else if (event is KeyUpEvent) {
-            debugPrint('keyUp: $key');
             InputManager.instance.keyUp(key);
             _dispatchKeyUp(key);
           } else if (event is KeyRepeatEvent) {
-            debugPrint('keyRepeat: $key');
             _dispatchKeyDown(key);
           }
         },

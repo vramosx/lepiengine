@@ -14,6 +14,9 @@ enum ColliderAnchor {
   bottomRight,
 }
 
+/// Lado da colisão relativo ao objeto que recebe o evento/correção
+enum CollisionSide { top, bottom, left, right, unknown }
+
 /// Informações detalhadas sobre uma colisão
 class CollisionInfo {
   const CollisionInfo({
@@ -22,6 +25,8 @@ class CollisionInfo {
     required this.normal,
     required this.penetrationDepth,
     required this.isEntering,
+    this.selfSide = CollisionSide.unknown,
+    this.otherSide = CollisionSide.unknown,
   });
 
   /// O outro collider envolvido na colisão
@@ -38,6 +43,12 @@ class CollisionInfo {
 
   /// Se esta é uma colisão de entrada (true) ou saída (false)
   final bool isEntering;
+
+  /// Lado do objeto (que recebe o evento) onde ocorreu o contato
+  final CollisionSide selfSide;
+
+  /// Lado do outro objeto envolvido (oposto de selfSide)
+  final CollisionSide otherSide;
 }
 
 /// Base abstrata para todos os tipos de collider
@@ -195,17 +206,7 @@ class AABBCollider extends Collider {
     final Offset normal;
     final double penetrationDepth;
 
-    // CORREÇÃO: Para plataformas, priorize separação vertical se há overlap significativo
-    final hasVerticalOverlap = overlapY > 5.0; // Threshold mínimo
-
-    if (hasVerticalOverlap) {
-      // Prioriza separação VERTICAL para plataformas
-      penetrationDepth = overlapY;
-      normal = const Offset(0, -1); // Empurra para cima
-      // print(
-      //   'AABB Debug: PLATAFORMA - Separação VERTICAL forçada, normal: $normal',
-      // );
-    } else if (overlapX < overlapY) {
+    if (overlapX < overlapY) {
       // Separação horizontal (lógica original)
       penetrationDepth = overlapX;
       if (rect1.center.dx < rect2.center.dx) {
