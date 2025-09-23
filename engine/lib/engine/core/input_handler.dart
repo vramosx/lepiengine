@@ -46,15 +46,21 @@ class _InputHandlerState extends State<InputHandler> {
     }
   }
 
+  Offset _toWorld(Offset screenPos) {
+    // Converte posição de tela real para mundo usando a viewport + câmera
+    return SceneManager.instance.screenToWorld(screenPos);
+  }
+
   void _dispatchTapDown(Offset pos) {
     final scene = SceneManager.instance.current;
     if (scene == null) return;
 
     for (final obj in scene.query<GameObject>()) {
       if (obj is Touchable) {
-        if (obj.hitTest(pos)) {
-          final localPos = obj.worldToLocal(pos);
-          obj.onTapDown(localPos, pos);
+        final worldPos = _toWorld(pos);
+        if (obj.hitTest(worldPos)) {
+          final localPos = obj.worldToLocal(worldPos);
+          obj.onTapDown(localPos, worldPos);
         }
       }
     }
@@ -66,9 +72,10 @@ class _InputHandlerState extends State<InputHandler> {
 
     for (final obj in scene.query<GameObject>()) {
       if (obj is Touchable) {
-        if (obj.hitTest(pos)) {
-          final localPos = obj.worldToLocal(pos);
-          obj.onTapUp(localPos, pos);
+        final worldPos = _toWorld(pos);
+        if (obj.hitTest(worldPos)) {
+          final localPos = obj.worldToLocal(worldPos);
+          obj.onTapUp(localPos, worldPos);
         }
       }
     }
@@ -80,9 +87,10 @@ class _InputHandlerState extends State<InputHandler> {
 
     for (final obj in scene.query<GameObject>()) {
       if (obj is Touchable) {
-        if (obj.hitTest(pos)) {
-          final localPos = obj.worldToLocal(pos);
-          obj.onDragStart(localPos, pos);
+        final worldPos = _toWorld(pos);
+        if (obj.hitTest(worldPos)) {
+          final localPos = obj.worldToLocal(worldPos);
+          obj.onDragStart(localPos, worldPos);
         }
       }
     }
@@ -94,9 +102,10 @@ class _InputHandlerState extends State<InputHandler> {
 
     for (final obj in scene.query<GameObject>()) {
       if (obj is Touchable) {
-        if (obj.hitTest(pos)) {
-          final localPos = obj.worldToLocal(pos);
-          obj.onDragUpdate(localPos, pos);
+        final worldPos = _toWorld(pos);
+        if (obj.hitTest(worldPos)) {
+          final localPos = obj.worldToLocal(worldPos);
+          obj.onDragUpdate(localPos, worldPos);
         }
       }
     }
@@ -108,9 +117,10 @@ class _InputHandlerState extends State<InputHandler> {
 
     for (final obj in scene.query<GameObject>()) {
       if (obj is Touchable) {
-        if (obj.hitTest(pos)) {
-          final localPos = obj.worldToLocal(pos);
-          obj.onDragEnd(localPos, pos, velocity);
+        final worldPos = _toWorld(pos);
+        if (obj.hitTest(worldPos)) {
+          final localPos = obj.worldToLocal(worldPos);
+          obj.onDragEnd(localPos, worldPos, velocity);
         }
       }
     }

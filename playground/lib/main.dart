@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lepiengine/engine/core/viewport.dart';
 import 'package:lepiengine/main.dart';
 import 'package:lepiengine_playground/examples/platform_game.dart';
 import 'package:lepiengine_playground/tilemap_editor/tilemap_editor_screen.dart';
@@ -53,7 +54,15 @@ class _MyGameState extends State<MyGame> {
         ),
         body: selectedScene == 'TilemapEditor'
             ? const TilemapEditorScreen()
-            : LepiGame(scenes: [platformGame], initialScene: 'PlatformGame'),
+            : LepiGame(
+                scenes: [platformGame],
+                initialScene: 'PlatformGame',
+                viewportConfig: ViewportConfig(
+                  referenceWidth: 1920,
+                  referenceHeight: 1080,
+                  mode: ScalingMode.fitWidth,
+                ),
+              ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'game_object.dart';
 import 'camera.dart';
 import 'collision_manager.dart';
+import 'viewport.dart';
 import 'collider.dart';
 
 /// Representa uma camada da cena.
@@ -300,19 +301,27 @@ class Scene {
 
   /// Renderiza a cena inteira.
   /// Passe `canvasSize` para habilitar o preenchimento de fundo (clearColor).
-  void render(Canvas canvas, {Size? canvasSize}) {
+  /// A `viewport` aplica escala/offset da resolução base para a tela.
+  void render(Canvas canvas, {Size? canvasSize, Viewport? viewport}) {
     if (!visible) return;
-
-    final viewport = canvasSize ?? Size.infinite;
 
     if (clearColor != null && canvasSize != null) {
       final paint = Paint()..color = clearColor!;
       canvas.drawRect(Offset.zero & canvasSize, paint);
     }
 
+    // Aplica transformação da viewport (resolução base -> tela)
+    if (viewport != null) {
+      canvas.save();
+      viewport.applyCanvasTransform(canvas);
+    }
+
     // Aplica transformação da câmera para objetos do mundo (não UI)
     canvas.save();
-    camera.applyTransform(canvas, viewport);
+    final logicalSize = viewport != null
+        ? viewport.logicalViewportSize
+        : (canvasSize ?? Size.zero);
+    camera.applyTransform(canvas, logicalSize);
 
     // Renderiza camadas que não são UI (com culling otimizado)
     for (final layer in _sortedLayers) {
@@ -338,6 +347,11 @@ class Scene {
     }
 
     canvas.restore();
+
+    // Desfaz transformação da viewport, mantendo canvas em espaço de tela para UI
+    if (viewport != null) {
+      canvas.restore();
+    }
 
     // Renderiza camada UI sem transformação da câmera (sempre em screen space)
     final uiLayer = _layers['ui'];
