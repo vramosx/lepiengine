@@ -80,6 +80,8 @@ class SpriteSheet extends GameObject {
   double _time = 0.0;
   int _currentFrame = 0;
   bool _animationEnded = false;
+  bool flipX = false;
+  bool flipY = false;
 
   SpriteSheet({required this.image, super.name, super.position, super.size});
 
@@ -137,9 +139,17 @@ class SpriteSheet extends GameObject {
 
     // Usa o sistema de coordenadas local do GameObject (0,0 com anchor aplicado)
     // O canvas já está transformado pela renderTree() do GameObject
-    final left = -size.width * anchor.dx;
-    final top = -size.height * anchor.dy;
+    final left = flipX
+        ? (size.width * anchor.dx - size.width)
+        : -size.width * anchor.dx;
+    final top = flipY ? size.height * anchor.dy : -size.height * anchor.dy;
     final dstRect = Rect.fromLTWH(left, top, size.width, size.height);
+
+    if (flipX || flipY) {
+      final dx = flipX ? -1.0 : 1.0;
+      final dy = flipY ? -1.0 : 1.0;
+      canvas.scale(dx, dy);
+    }
 
     canvas.drawImageRect(image, frameRect, dstRect, paint);
   }

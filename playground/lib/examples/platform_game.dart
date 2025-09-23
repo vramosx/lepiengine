@@ -16,7 +16,7 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
 
   @override
   void onEnter() {
@@ -141,7 +141,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
 
   void flip() {
     isFlipped = !isFlipped;
-    scale = Offset(scale.dx * -1, scale.dy);
+    flipX = !flipX;
   }
 
   @override
@@ -188,10 +188,15 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     if (jumpPressed) {
       if (isGrounded) {
         AudioManager.instance.playSound('jump.mp3');
+        play('jump');
         setVelocity(Offset(velocity.dx, jumpForce));
         coyoteTime = 0.0;
         isGrounded = false;
       } else {}
+    }
+
+    if (isGrounded) {
+      play('idle');
     }
   }
 

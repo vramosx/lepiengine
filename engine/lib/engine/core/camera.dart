@@ -210,9 +210,12 @@ class Camera {
 
     // Sistema de follow com interpolação frame-rate aware
     if (_followTarget != null) {
-      final targetPos = Offset(
-        _followTarget!.position.dx,
-        _followTarget!.position.dy,
+      // Foca no CENTRO visual do alvo em coordenadas de mundo
+      final targetPos = _followTarget!.localToWorld(
+        Offset(
+          _followTarget!.size.width * 0.5,
+          _followTarget!.size.height * 0.5,
+        ),
       );
 
       // Interpolação exponencial frame-rate independent
@@ -335,7 +338,7 @@ class Camera {
   /// Deve ser chamado antes de desenhar os objetos do mundo
   void applyTransform(Canvas canvas, Size viewport) {
     // 1. Translada para colocar o centro da tela na origem
-    // canvas.translate(viewport.width * 0.5, viewport.height * 0.5);
+    canvas.translate(viewport.width * 0.5, viewport.height * 0.5);
 
     // 2. Aplica o zoom (incluindo efeito de pulse)
     final effectiveZoom = _zoom + _pulseZoomOffset;

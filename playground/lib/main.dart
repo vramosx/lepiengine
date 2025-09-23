@@ -58,8 +58,8 @@ class _MyGameState extends State<MyGame> {
                 scenes: [platformGame],
                 initialScene: 'PlatformGame',
                 viewportConfig: ViewportConfig(
-                  referenceWidth: 1920,
-                  referenceHeight: 1080,
+                  referenceWidth: 800,
+                  referenceHeight: 600,
                   mode: ScalingMode.fitWidth,
                 ),
               ),
