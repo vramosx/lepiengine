@@ -33,7 +33,9 @@ class PlatformGame extends Scene {
 
     _loadPlayer();
 
-    AudioManager.instance.playMusic(Constants.backgroundMusic);
+    AudioManager.instance.stopAllMusic();
+
+    // AudioManager.instance.playMusic(Constants.backgroundMusic);
 
     // add(DebugText(text: 'Debug Text', position: const Offset(100, 200)));
   }
@@ -202,7 +204,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
 
     if (jumpPressed) {
       if (isGrounded) {
-        // AudioManager.instance.playSound('jump.mp3');
+        AudioManager.instance.playSound('jump.mp3');
         play('jump');
         setVelocity(Offset(velocity.dx, jumpForce));
         isGrounded = false;

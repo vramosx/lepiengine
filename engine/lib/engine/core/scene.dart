@@ -4,6 +4,7 @@ import 'camera.dart';
 import 'collision_manager.dart';
 import 'viewport.dart';
 import 'collider.dart';
+import '../animation/animation_manager.dart';
 
 /// Representa uma camada da cena.
 /// Objetos dentro da mesma camada são ordenados por zIndex.
@@ -31,7 +32,8 @@ class Scene {
     Camera? camera, // câmera da cena (opcional)
     bool debugCollisions = false, // ativa visualização debug de colisões
   }) : camera = camera ?? Camera(),
-       collisionManager = CollisionManager(debugMode: debugCollisions) {
+       collisionManager = CollisionManager(debugMode: debugCollisions),
+       animationManager = AnimationManager() {
     // cria camadas padrão (se não vier nada)
     if (initialLayers == null || initialLayers.isEmpty) {
       ensureLayer('background', order: 0);
@@ -52,6 +54,9 @@ class Scene {
 
   /// Sistema de colisões da cena
   final CollisionManager collisionManager;
+
+  /// Sistema de animações da cena
+  final AnimationManager animationManager;
 
   bool active = true; // controla se update() roda
   bool visible = true; // controla se render() desenha
@@ -297,6 +302,9 @@ class Scene {
 
     // Atualiza o sistema de colisões (resolve automaticamente)
     collisionManager.update(dt);
+
+    // Atualiza animações
+    animationManager.update(dt);
   }
 
   /// Renderiza a cena inteira.

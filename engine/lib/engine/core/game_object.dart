@@ -17,6 +17,8 @@ abstract class GameObject {
     this.visible = true,
     this.zIndex = 0.0,
     this.opacity = 1.0,
+    this.tintColor,
+    this.tintBlendMode = BlendMode.modulate,
     this.active = true,
   }) : position = position ?? Offset.zero,
        scale = scale ?? const Offset(1, 1);
@@ -40,6 +42,8 @@ abstract class GameObject {
   bool active;
   ZIndex zIndex;
   double opacity; // 0..1 (compõe com a pintura do filho)
+  Color? tintColor; // aplica uma cor multiplicativa via layer
+  BlendMode tintBlendMode; // como combinar a cor (default: modulate)
 
   // Hierarquia
   GameObject? _parent;
@@ -112,9 +116,14 @@ abstract class GameObject {
       canvas.translate(-pivot.dx, -pivot.dy);
     }
 
-    // Aplica opacidade local via layer se necessário
-    if (opacity < 1.0) {
-      final Paint p = Paint()..color = Color.fromRGBO(255, 255, 255, opacity);
+    // Aplica opacidade/tint via layer se necessário
+    final bool needsLayer = opacity < 1.0 || tintColor != null;
+    if (needsLayer) {
+      final Paint p = Paint()
+        ..color = Color.fromRGBO(255, 255, 255, opacity)
+        ..colorFilter = tintColor != null
+            ? ColorFilter.mode(tintColor!, tintBlendMode)
+            : null;
       canvas.saveLayer(null, p);
       render(canvas);
       // filhos
