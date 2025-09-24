@@ -42,7 +42,9 @@ class PlatformGame extends Scene {
 
     await _loadPlayer();
 
-    setLayerOrder("frontPlayer", 0);
+    setLayerOrder("static_objects", 1);
+
+    setLayerOrder("entities", 2);
   }
 
   Future<void> _loadJumper() async {
@@ -52,15 +54,14 @@ class PlatformGame extends Scene {
     add(jumper);
 
     final jumper2 = Jumper(image: jumperSprite);
-    jumper2.position = const Offset(1200, 465);
+    jumper2.position = const Offset(1050, 305);
     add(jumper2);
   }
 
   Future<void> _loadPointerIdle() async {
     final pointerIdle = await pointerIdleBuilder;
     pointerIdle.position = const Offset(100, 450);
-    add(pointerIdle, layer: 'frontPlayer');
-    setLayerOrder("frontPlayer", 2);
+    add(pointerIdle, layer: 'static_objects');
   }
 
   Future<void> _loadPlayer() async {
@@ -79,13 +80,11 @@ class PlatformGame extends Scene {
       player.play('idle');
       camera.follow(player);
       remove(playerStart);
-      setLayerOrder("entities", 1);
     });
 
     add(playerStart, layer: 'entities');
     playerStart.position = const Offset(225, 400);
     camera.follow(playerStart);
-    setLayerOrder("entities", 1);
   }
 }
 
@@ -185,7 +184,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       SceneManager.instance.current?.remove(smoke);
     });
     smoke.position = Offset(position.dx + 32, position.dy + 36);
-    SceneManager.instance.current?.add(smoke, layer: 'frontPlayer');
+    SceneManager.instance.current?.add(smoke, layer: 'static_objects');
     smokeCount++;
   }
 

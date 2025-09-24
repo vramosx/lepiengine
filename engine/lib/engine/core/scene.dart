@@ -78,15 +78,25 @@ class Scene {
   }
 
   /// Garante existência da camada e retorna a referência.
-  SceneLayer ensureLayer(String name, {int order = 0}) {
-    return _layers.putIfAbsent(name, () => SceneLayer(name, order: order))
-      ..order = order; // permite atualizar a ordem caso já exista
+  ///
+  /// - Se a camada já existir:
+  ///   - Atualiza `order` somente se um valor explícito for fornecido.
+  /// - Se não existir:
+  ///   - Cria a camada com `order` (ou 0, se não fornecido).
+  SceneLayer ensureLayer(String name, {int? order}) {
+    final existing = _layers[name];
+    if (existing != null) {
+      if (order != null) existing.order = order;
+      return existing;
+    }
+    final created = SceneLayer(name, order: order ?? 0);
+    _layers[name] = created;
+    return created;
   }
 
-  /// Atualiza a ordem de uma camada existente.
+  /// Atualiza (ou cria) uma camada com a ordem desejada.
   void setLayerOrder(String layerName, int order) {
-    final layer = _layers[layerName];
-    if (layer != null) layer.order = order;
+    ensureLayer(layerName, order: order);
   }
 
   /// Remove completamente uma camada.
