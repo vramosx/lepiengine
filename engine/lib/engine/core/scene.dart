@@ -65,6 +65,7 @@ class Scene {
   // ---- Ciclo de vida da própria cena (SceneManager chamará) ----
   void onEnter() {} // chamada quando a cena se torna ativa
   void onExit() {} // chamada quando a cena deixa de ser ativa
+  Future<void> loadScene() async {} // chamada para carregar componentes da cena
 
   // ---- Camadas ----
   final Map<String, SceneLayer> _layers = <String, SceneLayer>{};

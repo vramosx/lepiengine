@@ -1,4 +1,5 @@
 class Constants {
+  static const String lepiLogo = 'lepi/LepiLogo.png';
   static const String background = 'background/Background.png';
   static const String appearing = 'character/Appearing.png';
   static const String character = 'character/Character.png';

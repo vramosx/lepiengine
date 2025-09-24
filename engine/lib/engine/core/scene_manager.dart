@@ -67,9 +67,11 @@ class SceneManager {
     if (!scene.mounted) {
       scene.mounted = true;
       scene.onEnter();
+      scene.loadScene();
     } else {
       scene.clearAll();
       scene.onEnter();
+      scene.loadScene();
     }
   }
 

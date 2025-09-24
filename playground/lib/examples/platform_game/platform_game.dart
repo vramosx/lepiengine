@@ -13,6 +13,7 @@ import 'package:lepiengine/engine/core/scene_manager.dart';
 import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
 import 'package:lepiengine/engine/game_objects/tilemap.dart';
 import 'package:lepiengine/engine/models/tileset.dart';
+import 'package:lepiengine_playground/examples/platform_game/static_objects.dart';
 import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
@@ -22,22 +23,26 @@ class PlatformGame extends Scene {
   @override
   void onEnter() {
     super.onEnter();
-    final platformMap = PlatformMap();
-    add(platformMap, layer: 'map');
-
-    setLayerOrder("map", 0);
-
-    _loadPointerIdle();
-
-    _loadJumper();
-
-    _loadPlayer();
-
     AudioManager.instance.stopAllMusic();
 
     // AudioManager.instance.playMusic(Constants.backgroundMusic);
+  }
 
-    // add(DebugText(text: 'Debug Text', position: const Offset(100, 200)));
+  @override
+  Future<void> loadScene() async {
+    super.loadScene();
+
+    final platformMap = PlatformMap();
+    add(platformMap, layer: 'map');
+    setLayerOrder("map", 0);
+
+    await _loadPointerIdle();
+
+    await _loadJumper();
+
+    await _loadPlayer();
+
+    setLayerOrder("frontPlayer", 0);
   }
 
   Future<void> _loadJumper() async {
@@ -45,48 +50,42 @@ class PlatformGame extends Scene {
     final jumper = Jumper(image: jumperSprite);
     jumper.position = const Offset(350, 465);
     add(jumper);
+
+    final jumper2 = Jumper(image: jumperSprite);
+    jumper2.position = const Offset(1200, 465);
+    add(jumper2);
   }
 
   Future<void> _loadPointerIdle() async {
-    final pointerIdleSprite = await AssetLoader.loadImage(
-      Constants.pointerIdle,
-    );
-    final pointerIdle = PointerIdle(image: pointerIdleSprite);
+    final pointerIdle = await pointerIdleBuilder;
     pointerIdle.position = const Offset(100, 450);
     add(pointerIdle, layer: 'frontPlayer');
-    setLayerOrder("frontPlayer", 8);
+    setLayerOrder("frontPlayer", 2);
   }
 
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
-    final playerStartSprite = await AssetLoader.loadImage(Constants.appearing);
-    final playerGemSprite = await AssetLoader.loadImage(Constants.gem);
 
     final player = Player(image: playerSprite);
     player.size = const Size(48, 48);
     player.position = const Offset(250, 400);
 
-    final playerGem = PlayerGem(image: playerGemSprite);
-    playerGem.size = const Size(16, 16);
+    final playerGem = await playerGemBuilder;
     player.attachObject(playerGem, const Offset(0, 0));
 
-    late PlayerStart playerStart;
-
-    playerStart = PlayerStart(
-      image: playerStartSprite,
-      onEnd: () {
-        add(player);
-        player.play('idle');
-        setLayerOrder("entities", 3);
-        camera.follow(player);
-        remove(playerStart);
-      },
-    );
+    late SpriteSheet playerStart;
+    playerStart = await playerStartBuilder(() {
+      add(player, layer: 'entities');
+      player.play('idle');
+      camera.follow(player);
+      remove(playerStart);
+      setLayerOrder("entities", 1);
+    });
 
     add(playerStart, layer: 'entities');
     playerStart.position = const Offset(225, 400);
-    setLayerOrder("entities", 3);
     camera.follow(playerStart);
+    setLayerOrder("entities", 1);
   }
 }
 
@@ -150,21 +149,6 @@ class PlatformMap extends GameObject {
   void render(Canvas canvas) {}
 }
 
-class DebugText extends GameObject {
-  final String text;
-  DebugText({super.name = 'DebugText', required this.text, super.position});
-
-  @override
-  void render(Canvas canvas) {
-    final textPainter = TextPainter(
-      text: TextSpan(text: text),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, position);
-  }
-}
-
 class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   Player({super.name = 'Player', required super.image}) : super() {
     addAABBCollider(
@@ -181,7 +165,6 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   final double moveSpeed = 150.0;
   final double jumpForce = -350.0;
   bool isFlipped = false;
-  late var playerSmokeSprite;
   var smokeCount = 0;
 
   void flip() {
@@ -193,6 +176,17 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   void update(double dt) {
     super.update(dt);
     _handleInput();
+  }
+
+  Future<void> createSmoke(Offset position) async {
+    late SpriteSheet smoke;
+    smoke = await playerMovementSmokeBuilder(() {
+      smokeCount--;
+      SceneManager.instance.current?.remove(smoke);
+    });
+    smoke.position = Offset(position.dx + 32, position.dy + 36);
+    SceneManager.instance.current?.add(smoke, layer: 'frontPlayer');
+    smokeCount++;
   }
 
   void _handleInput() {
@@ -217,15 +211,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     if (InputManager.instance.isPressed('KeyA') ||
         InputManager.instance.isPressed('Arrow Left')) {
       if (smokeCount < 1 && isGrounded) {
-        final smoke = PlayerMovementSmoke(
-          image: playerSmokeSprite,
-          onEnd: () {
-            smokeCount--;
-          },
-        );
-        smoke.position = Offset(position.dx + 32, position.dy + 36);
-        SceneManager.instance.current?.add(smoke, layer: 'frontPlayer');
-        smokeCount++;
+        createSmoke(Offset(position.dx - 10, position.dy));
       }
 
       horizontal = -1.0;
@@ -237,15 +223,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     if (InputManager.instance.isPressed('KeyD') ||
         InputManager.instance.isPressed('Arrow Right')) {
       if (smokeCount < 1 && isGrounded) {
-        final smoke = PlayerMovementSmoke(
-          image: playerSmokeSprite,
-          onEnd: () {
-            smokeCount--;
-          },
-        );
-        smoke.position = Offset(position.dx + 10, position.dy + 36);
-        SceneManager.instance.current?.add(smoke, layer: 'frontPlayer');
-        smokeCount++;
+        createSmoke(Offset(position.dx - 10, position.dy));
       }
 
       horizontal = 1.0;
@@ -410,48 +388,6 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
         frames: [Frame(col: 0, row: row)],
       ),
     );
-
-    _loadSmokeSprite();
-  }
-
-  Future<void> _loadSmokeSprite() async {
-    playerSmokeSprite = await AssetLoader.loadImage(Constants.smoke);
-  }
-}
-
-class PointerIdle extends SpriteSheet {
-  PointerIdle({
-    super.name = 'PointerIdle',
-    super.size = const Size(64, 64),
-    required super.image,
-  }) : super() {
-    addAnimation(
-      SpriteAnimation(
-        name: 'idle',
-        frameSize: Size(48, 48),
-        frames: [
-          Frame(col: 0, row: 0),
-          Frame(col: 0, row: 0),
-          Frame(col: 0, row: 0),
-          Frame(col: 0, row: 0),
-          Frame(col: 0, row: 0),
-          Frame(col: 0, row: 0),
-          Frame(col: 1, row: 0),
-          Frame(col: 2, row: 0),
-          Frame(col: 3, row: 0),
-          Frame(col: 4, row: 0),
-          Frame(col: 5, row: 0),
-          Frame(col: 6, row: 0),
-        ],
-        frameDuration: 0.2,
-      ),
-    );
-  }
-
-  @override
-  void onAdd() {
-    super.onAdd();
-    play('idle');
   }
 }
 
@@ -507,109 +443,5 @@ class Jumper extends SpriteSheet with CollisionCallbacks {
     if (collision.selfSide == CollisionSide.top) {
       play('jump');
     }
-  }
-}
-
-class PlayerStart extends SpriteSheet {
-  PlayerStart({
-    super.name = 'PlayerStart',
-    required super.image,
-    Function()? onEnd,
-    super.size = const Size(96, 96),
-  }) : super() {
-    addAnimation(
-      SpriteAnimation(
-        name: 'start',
-        frameSize: Size(96, 96),
-        frames: [
-          Frame(col: 0, row: 0),
-          Frame(col: 1, row: 0),
-          Frame(col: 2, row: 0),
-          Frame(col: 3, row: 0),
-          Frame(col: 4, row: 0),
-          Frame(col: 5, row: 0),
-          Frame(col: 6, row: 0),
-        ],
-        loop: false,
-        frameDuration: 0.1,
-        onEnd: () {
-          onEnd?.call();
-        },
-      ),
-    );
-  }
-
-  @override
-  void onAdd() {
-    super.onAdd();
-    play('start');
-  }
-}
-
-class PlayerGem extends SpriteSheet {
-  PlayerGem({
-    super.name = 'PlayerGem',
-    required super.image,
-    super.size = const Size(16, 16),
-  }) : super() {
-    addAnimation(
-      SpriteAnimation(
-        name: 'gem',
-        frameSize: Size(16, 16),
-        frames: [
-          Frame(col: 0, row: 0),
-          Frame(col: 1, row: 0),
-          Frame(col: 2, row: 0),
-          Frame(col: 3, row: 0),
-          Frame(col: 4, row: 0),
-          Frame(col: 5, row: 0),
-          Frame(col: 6, row: 0),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void onAdd() {
-    super.onAdd();
-    play('gem');
-  }
-}
-
-class PlayerMovementSmoke extends SpriteSheet {
-  PlayerMovementSmoke({
-    super.name = 'PlayerMovementSmoke',
-    required super.image,
-    super.size = const Size(16, 16),
-    Function()? onEnd,
-  }) : super() {
-    addAnimation(
-      SpriteAnimation(
-        name: 'smoke',
-        frameSize: Size(16, 16),
-        frames: [
-          Frame(col: 0, row: 0),
-          Frame(col: 1, row: 0),
-          Frame(col: 2, row: 0),
-          Frame(col: 3, row: 0),
-          Frame(col: 0, row: 1),
-          Frame(col: 1, row: 1),
-          Frame(col: 2, row: 1),
-          Frame(col: 3, row: 1),
-        ],
-        loop: false,
-        frameDuration: 0.1,
-        onEnd: () {
-          onEnd?.call();
-          SceneManager.instance.current?.remove(this);
-        },
-      ),
-    );
-  }
-
-  @override
-  void onAdd() {
-    super.onAdd();
-    play('smoke');
   }
 }
