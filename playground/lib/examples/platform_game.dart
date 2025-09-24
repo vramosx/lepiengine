@@ -52,16 +52,21 @@ class PlatformGame extends Scene {
     final pointerIdle = PointerIdle(image: pointerIdleSprite);
     pointerIdle.position = const Offset(100, 450);
     add(pointerIdle, layer: 'frontPlayer');
-    setLayerOrder("frontPlayer", 2);
+    setLayerOrder("frontPlayer", 8);
   }
 
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
     final playerStartSprite = await AssetLoader.loadImage(Constants.appearing);
+    final playerGemSprite = await AssetLoader.loadImage(Constants.gem);
 
     final player = Player(image: playerSprite);
     player.size = const Size(48, 48);
     player.position = const Offset(250, 400);
+
+    final playerGem = PlayerGem(image: playerGemSprite);
+    playerGem.size = const Size(16, 16);
+    player.attachObject(playerGem, const Offset(0, 0));
 
     late PlayerStart playerStart;
 
@@ -174,6 +179,8 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   final double moveSpeed = 150.0;
   final double jumpForce = -350.0;
   bool isFlipped = false;
+  late var playerSmokeSprite;
+  var smokeCount = 0;
 
   void flip() {
     isFlipped = !isFlipped;
@@ -207,6 +214,18 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     double horizontal = 0.0;
     if (InputManager.instance.isPressed('KeyA') ||
         InputManager.instance.isPressed('Arrow Left')) {
+      if (smokeCount < 1 && isGrounded) {
+        final smoke = PlayerMovementSmoke(
+          image: playerSmokeSprite,
+          onEnd: () {
+            smokeCount--;
+          },
+        );
+        smoke.position = Offset(position.dx + 32, position.dy + 36);
+        SceneManager.instance.current?.add(smoke, layer: 'frontPlayer');
+        smokeCount++;
+      }
+
       horizontal = -1.0;
       play('run');
       if (!isFlipped) {
@@ -215,6 +234,18 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     }
     if (InputManager.instance.isPressed('KeyD') ||
         InputManager.instance.isPressed('Arrow Right')) {
+      if (smokeCount < 1 && isGrounded) {
+        final smoke = PlayerMovementSmoke(
+          image: playerSmokeSprite,
+          onEnd: () {
+            smokeCount--;
+          },
+        );
+        smoke.position = Offset(position.dx + 10, position.dy + 36);
+        SceneManager.instance.current?.add(smoke, layer: 'frontPlayer');
+        smokeCount++;
+      }
+
       horizontal = 1.0;
       play('run');
       if (isFlipped) {
@@ -251,6 +282,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       if (other is Jumper) {
         SceneManager.instance.current?.camera.lightShake();
         setVelocity(Offset(velocity.dx, jumpForce * 2));
+        isGrounded = false;
       }
     }
   }
@@ -376,6 +408,12 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
         frames: [Frame(col: 0, row: row)],
       ),
     );
+
+    _loadSmokeSprite();
+  }
+
+  Future<void> _loadSmokeSprite() async {
+    playerSmokeSprite = await AssetLoader.loadImage(Constants.smoke);
   }
 }
 
@@ -491,7 +529,7 @@ class PlayerStart extends SpriteSheet {
           Frame(col: 6, row: 0),
         ],
         loop: false,
-        frameDuration: 0.05,
+        frameDuration: 0.1,
         onEnd: () {
           onEnd?.call();
         },
@@ -503,5 +541,73 @@ class PlayerStart extends SpriteSheet {
   void onAdd() {
     super.onAdd();
     play('start');
+  }
+}
+
+class PlayerGem extends SpriteSheet {
+  PlayerGem({
+    super.name = 'PlayerGem',
+    required super.image,
+    super.size = const Size(16, 16),
+  }) : super() {
+    addAnimation(
+      SpriteAnimation(
+        name: 'gem',
+        frameSize: Size(16, 16),
+        frames: [
+          Frame(col: 0, row: 0),
+          Frame(col: 1, row: 0),
+          Frame(col: 2, row: 0),
+          Frame(col: 3, row: 0),
+          Frame(col: 4, row: 0),
+          Frame(col: 5, row: 0),
+          Frame(col: 6, row: 0),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    play('gem');
+  }
+}
+
+class PlayerMovementSmoke extends SpriteSheet {
+  PlayerMovementSmoke({
+    super.name = 'PlayerMovementSmoke',
+    required super.image,
+    super.size = const Size(16, 16),
+    Function()? onEnd,
+  }) : super() {
+    addAnimation(
+      SpriteAnimation(
+        name: 'smoke',
+        frameSize: Size(16, 16),
+        frames: [
+          Frame(col: 0, row: 0),
+          Frame(col: 1, row: 0),
+          Frame(col: 2, row: 0),
+          Frame(col: 3, row: 0),
+          Frame(col: 0, row: 1),
+          Frame(col: 1, row: 1),
+          Frame(col: 2, row: 1),
+          Frame(col: 3, row: 1),
+        ],
+        loop: false,
+        frameDuration: 0.1,
+        onEnd: () {
+          onEnd?.call();
+          SceneManager.instance.current?.remove(this);
+        },
+      ),
+    );
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    play('smoke');
   }
 }

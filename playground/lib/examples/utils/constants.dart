@@ -2,6 +2,7 @@ class Constants {
   static const String background = 'background/Background.png';
   static const String appearing = 'character/Appearing.png';
   static const String character = 'character/Character.png';
+  static const String smoke = 'character/Smoke.png';
   static const String desappearing = 'character/Desappearing.png';
   static const String checkpoint = 'objects/Checkpoint.png';
   static const String gem = 'objects/Gem.png';

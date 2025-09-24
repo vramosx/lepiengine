@@ -132,7 +132,7 @@ abstract class GameObject {
     canvas.restore();
   }
 
-  /// Ordena filhos por zIndex (estável). Pode otimizar com dirty flag no futuro.
+  /// Ordena filhos por zIndex (estável). Podemos otimizar com dirty flag no futuro.
   Iterable<GameObject> _childrenSorted() sync* {
     final list = _children.toList()
       ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
@@ -156,6 +156,31 @@ abstract class GameObject {
         _onColliderAdded!.call(collider);
       }
     }
+  }
+
+  /// Anexa um objeto como filho mantendo um deslocamento (offset) local
+  /// em relação a este `GameObject` (parent).
+  ///
+  /// - `child`: objeto a ser anexado
+  /// - `localOffset`: posição relativa ao pai onde o `child` ficará
+  ///
+  /// Observação: use este método quando NÃO adicionou o `child` diretamente
+  /// à cena. O objeto anexado será renderizado/atualizado via árvore do pai.
+  void attachObject(GameObject child, Offset localOffset) {
+    // Se já está anexado a este mesmo pai, apenas atualiza o offset
+    if (identical(child._parent, this)) {
+      child.position = localOffset;
+      return;
+    }
+
+    // Se possui outro pai, destaca do pai anterior
+    if (child._parent != null) {
+      child._parent!.removeChild(child);
+    }
+
+    // Define a posição local desejada e adiciona como filho
+    child.position = localOffset;
+    addChild(child);
   }
 
   /// Remove filho e dispara onRemove.
