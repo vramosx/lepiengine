@@ -25,13 +25,13 @@ class PlatformGame extends Scene {
     final platformMap = PlatformMap();
     add(platformMap, layer: 'map');
 
-    _loadPlayer();
+    setLayerOrder("map", 0);
 
     _loadPointerIdle();
 
     _loadJumper();
 
-    setLayerOrder("map", 0);
+    _loadPlayer();
 
     AudioManager.instance.playMusic(Constants.backgroundMusic);
 
@@ -57,13 +57,29 @@ class PlatformGame extends Scene {
 
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
+    final playerStartSprite = await AssetLoader.loadImage(Constants.appearing);
+
     final player = Player(image: playerSprite);
     player.size = const Size(48, 48);
     player.position = const Offset(250, 400);
-    add(player);
-    player.play('idle');
+
+    late PlayerStart playerStart;
+
+    playerStart = PlayerStart(
+      image: playerStartSprite,
+      onEnd: () {
+        add(player);
+        player.play('idle');
+        setLayerOrder("entities", 3);
+        camera.follow(player);
+        remove(playerStart);
+      },
+    );
+
+    add(playerStart, layer: 'entities');
+    playerStart.position = const Offset(225, 400);
     setLayerOrder("entities", 3);
-    camera.follow(player);
+    camera.follow(playerStart);
   }
 }
 
@@ -151,7 +167,7 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     );
 
     gravity = 800;
-    maxFallSpeed = 500;
+    maxFallSpeed = 800;
   }
 
   bool isGrounded = false;
@@ -430,7 +446,7 @@ class Jumper extends SpriteSheet with CollisionCallbacks {
           Frame(col: 5, row: 0),
           Frame(col: 6, row: 0),
         ],
-        frameDuration: 0.1,
+        frameDuration: 0.05,
         loop: false,
         onEnd: () {
           play('idle');
@@ -451,5 +467,41 @@ class Jumper extends SpriteSheet with CollisionCallbacks {
     if (collision.selfSide == CollisionSide.top) {
       play('jump');
     }
+  }
+}
+
+class PlayerStart extends SpriteSheet {
+  PlayerStart({
+    super.name = 'PlayerStart',
+    required super.image,
+    Function()? onEnd,
+    super.size = const Size(96, 96),
+  }) : super() {
+    addAnimation(
+      SpriteAnimation(
+        name: 'start',
+        frameSize: Size(96, 96),
+        frames: [
+          Frame(col: 0, row: 0),
+          Frame(col: 1, row: 0),
+          Frame(col: 2, row: 0),
+          Frame(col: 3, row: 0),
+          Frame(col: 4, row: 0),
+          Frame(col: 5, row: 0),
+          Frame(col: 6, row: 0),
+        ],
+        loop: false,
+        frameDuration: 0.05,
+        onEnd: () {
+          onEnd?.call();
+        },
+      ),
+    );
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    play('start');
   }
 }
