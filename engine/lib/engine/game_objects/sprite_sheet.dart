@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:lepiengine/engine/core/collision_manager.dart';
+
 import '../core/game_object.dart';
 
 /// Representa a posição de um frame em uma sprite sheet por coluna e linha
@@ -153,4 +155,13 @@ class SpriteSheet extends GameObject {
 
     canvas.drawImageRect(image, frameRect, dstRect, paint);
   }
+}
+
+class SpriteSheetWithCollider extends SpriteSheet with CollisionCallbacks {
+  SpriteSheetWithCollider({
+    required super.image,
+    super.name,
+    super.position,
+    super.size,
+  });
 }

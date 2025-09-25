@@ -1,7 +1,6 @@
 import 'dart:ui';
 
-import 'package:flutter/material.dart'
-    show Colors, debugPrint, TextPainter, TextSpan;
+import 'package:flutter/material.dart' show Colors, debugPrint;
 import 'package:lepiengine/engine/core/asset_loader.dart';
 import 'package:lepiengine/engine/core/audio_manager.dart';
 import 'package:lepiengine/engine/core/collider.dart';
@@ -42,9 +41,28 @@ class PlatformGame extends Scene {
 
     await _loadPlayer();
 
+    await _loadGems();
+
     setLayerOrder("static_objects", 1);
 
     setLayerOrder("entities", 2);
+  }
+
+  Future<void> _loadGems() async {
+    final gemsPositions = [
+      const Offset(600, 200),
+      const Offset(650, 200),
+      const Offset(700, 200),
+      const Offset(750, 200),
+      const Offset(200, 200),
+      const Offset(210, 210),
+    ];
+
+    for (var position in gemsPositions) {
+      final gem = await playerGemBuilder();
+      gem.position = position;
+      add(gem);
+    }
   }
 
   Future<void> _loadJumper() async {
@@ -70,9 +88,6 @@ class PlatformGame extends Scene {
     final player = Player(image: playerSprite);
     player.size = const Size(48, 48);
     player.position = const Offset(250, 400);
-
-    final playerGem = await playerGemBuilder;
-    player.attachObject(playerGem, const Offset(0, 0));
 
     late SpriteSheet playerStart;
     playerStart = await playerStartBuilder(() {
@@ -268,8 +283,12 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
 
   @override
   void onCollisionStay(GameObject other, CollisionInfo collision) {
-    // Mantém isGrounded enquanto estiver colidindo com o chão
-    if (collision.selfSide == CollisionSide.bottom) {
+    if (collision.selfSide == CollisionSide.bottom &&
+        other.name == 'PlayerGem') {
+      SceneManager.instance.current?.remove(other);
+      return;
+    } else if (collision.selfSide == CollisionSide.bottom &&
+        other.name != 'PlayerGem') {
       isGrounded = true;
       // Zera somente a componente vertical para não matar o movimento horizontal
       setVelocity(Offset(velocity.dx, 0));

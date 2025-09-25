@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/material.dart' show Colors;
 import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
 import 'package:lepiengine/engine/tools/sprite_sheet_builder.dart';
 import 'package:lepiengine_playground/examples/utils/constants.dart';
@@ -60,10 +61,12 @@ Future<SpriteSheet> playerStartBuilder(Function()? onEnd) =>
       initialAnimation: 'start',
     );
 
-Future<SpriteSheet> playerGemBuilder = SpriteSheetBuilder.build(
+Future<SpriteSheet> playerGemBuilder() => SpriteSheetBuilder.buildWithCollider(
   name: 'PlayerGem',
   imagePath: Constants.gem,
   size: Size(16, 16),
+  isTrigger: true,
+  debugColor: Colors.black,
   animations: [
     SpriteAnimation(
       name: 'gem',
