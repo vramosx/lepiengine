@@ -16,6 +16,7 @@ class Animations {
     Offset position,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.position;
     final delta = position - start;
@@ -29,6 +30,9 @@ class Animations {
           start.dy + delta.dy * p,
         );
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -40,6 +44,7 @@ class Animations {
     Offset offset,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.position;
     final t = engine_anim.Tween(
@@ -52,6 +57,9 @@ class Animations {
           start.dy + offset.dy * p,
         );
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -63,6 +71,7 @@ class Animations {
     double angle,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.rotation;
     final delta = angle - start;
@@ -72,6 +81,9 @@ class Animations {
       easing: ease,
       onUpdate: (p) {
         target.rotation = start + delta * p;
+      },
+      onComplete: () {
+        onComplete?.call();
       },
     );
     final scene = SceneManager.instance.current!;
@@ -84,6 +96,7 @@ class Animations {
     Offset scale,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.scale;
     final delta = Offset(scale.dx - start.dx, scale.dy - start.dy);
@@ -93,6 +106,9 @@ class Animations {
       easing: ease,
       onUpdate: (p) {
         target.scale = Offset(start.dx + delta.dx * p, start.dy + delta.dy * p);
+      },
+      onComplete: () {
+        onComplete?.call();
       },
     );
     final scene = SceneManager.instance.current!;
@@ -105,6 +121,7 @@ class Animations {
     Size size,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.size;
     final dw = size.width - start.width;
@@ -116,6 +133,9 @@ class Animations {
       onUpdate: (p) {
         target.size = Size(start.width + dw * p, start.height + dh * p);
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -126,6 +146,7 @@ class Animations {
     GameObject target,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.opacity;
     final t = engine_anim.Tween(
@@ -134,6 +155,9 @@ class Animations {
       easing: ease,
       onUpdate: (p) {
         target.opacity = (start + (1.0 - start) * p).clamp(0.0, 1.0);
+      },
+      onComplete: () {
+        onComplete?.call();
       },
     );
     final scene = SceneManager.instance.current!;
@@ -145,6 +169,7 @@ class Animations {
     GameObject target,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     final start = target.opacity;
     final t = engine_anim.Tween(
@@ -153,6 +178,9 @@ class Animations {
       easing: ease,
       onUpdate: (p) {
         target.opacity = (start + (0.0 - start) * p).clamp(0.0, 1.0);
+      },
+      onComplete: () {
+        onComplete?.call();
       },
     );
     final scene = SceneManager.instance.current!;
@@ -166,6 +194,7 @@ class Animations {
     double duration, {
     EasingType ease = EasingType.linear,
     BlendMode blendMode = BlendMode.modulate,
+    void Function()? onComplete,
   }) {
     final start = target.tintColor ?? const Color(0xFFFFFFFF);
     final sr = start.red.toDouble();
@@ -190,6 +219,9 @@ class Animations {
           (sb + (eb - sb) * p).round(),
         );
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -200,8 +232,9 @@ class Animations {
     GameObject target,
     Color color,
     double frequency,
-    double duration,
-  ) {
+    double duration, {
+    void Function()? onComplete,
+  }) {
     // Alterna entre null e a cor fornecida na frequencia especificada
     bool on = false;
     final t = engine_anim.Tween(
@@ -218,6 +251,9 @@ class Animations {
         target.tintColor = on ? color : null;
         target.tintBlendMode = BlendMode.modulate;
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -229,6 +265,7 @@ class Animations {
     double intensity,
     double duration, {
     EasingType ease = EasingType.easeOut,
+    void Function()? onComplete,
   }) {
     final base = target.position;
     final rnd = math.Random();
@@ -243,6 +280,9 @@ class Animations {
         target.position = Offset(base.dx + dx, base.dy + dy);
         if (p >= 1.0) target.position = base;
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -255,6 +295,7 @@ class Animations {
     double duration, {
     int repeat = 1,
     EasingType ease = EasingType.easeInOut,
+    void Function()? onComplete,
   }) {
     final start = target.scale;
     final up = engine_anim.Tween(
@@ -284,7 +325,12 @@ class Animations {
     final seq = engine_anim.SequenceTween(target: target, tweens: [up, down]);
     final rep = repeat <= 1
         ? seq
-        : engine_anim.RepeatTween(target: target, tween: seq, count: repeat);
+        : engine_anim.RepeatTween(
+            target: target,
+            tween: seq,
+            count: repeat,
+            onComplete: onComplete,
+          );
     final scene = SceneManager.instance.current!;
     of(scene).add(rep);
     return rep;
@@ -296,6 +342,7 @@ class Animations {
     double frequency,
     double duration, {
     bool decay = true,
+    void Function()? onComplete,
   }) {
     final base = target.rotation;
     final t = engine_anim.Tween(
@@ -306,6 +353,9 @@ class Animations {
         final phase = 2 * math.pi * frequency * (p * duration);
         target.rotation = base + math.sin(phase) * maxAngleRadians * amp;
         if (p >= 1.0) target.rotation = base;
+      },
+      onComplete: () {
+        onComplete?.call();
       },
     );
     final scene = SceneManager.instance.current!;
@@ -318,6 +368,7 @@ class Animations {
     List<Offset> points,
     double duration, {
     EasingType ease = EasingType.linear,
+    void Function()? onComplete,
   }) {
     assert(points.length >= 2, 'pathFollow requer pelo menos 2 pontos');
     // Prepara comprimentos cumulativos
@@ -353,6 +404,9 @@ class Animations {
           segStart.dy + (segEnd.dy - segStart.dy) * local,
         );
       },
+      onComplete: () {
+        onComplete?.call();
+      },
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);
@@ -361,8 +415,9 @@ class Animations {
 
   static engine_anim.SequenceTween sequence(
     List<engine_anim.Tween> tweens,
-    GameObject target,
-  ) {
+    GameObject target, {
+    void Function()? onComplete,
+  }) {
     final seq = engine_anim.SequenceTween(target: target, tweens: tweens);
     final scene = SceneManager.instance.current!;
     of(scene).add(seq);
@@ -371,8 +426,9 @@ class Animations {
 
   static engine_anim.ParallelTween parallel(
     List<engine_anim.Tween> tweens,
-    GameObject target,
-  ) {
+    GameObject target, {
+    void Function()? onComplete,
+  }) {
     final par = engine_anim.ParallelTween(target: target, tweens: tweens);
     final scene = SceneManager.instance.current!;
     of(scene).add(par);
@@ -382,11 +438,13 @@ class Animations {
   static engine_anim.RepeatTween repeat(
     engine_anim.Tween tween, {
     int count = 2,
+    void Function()? onComplete,
   }) {
     final rep = engine_anim.RepeatTween(
       target: tween.target,
       tween: tween,
       count: count,
+      onComplete: onComplete,
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(rep);
@@ -409,12 +467,14 @@ class Animations {
     double duration, {
     EasingType ease = EasingType.linear,
     required void Function(double t) onUpdate,
+    void Function()? onComplete,
   }) {
     final t = engine_anim.Tween(
       target: target,
       duration: duration,
       easing: ease,
       onUpdate: onUpdate,
+      onComplete: onComplete,
     );
     final scene = SceneManager.instance.current!;
     of(scene).add(t);

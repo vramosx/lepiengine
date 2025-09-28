@@ -1,6 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart' show Colors, debugPrint;
+import 'package:lepiengine/engine/animation/animations.dart';
+import 'package:lepiengine/engine/animation/easing.dart';
 import 'package:lepiengine/engine/core/asset_loader.dart';
 import 'package:lepiengine/engine/core/audio_manager.dart';
 import 'package:lepiengine/engine/core/collider.dart';
@@ -22,9 +24,9 @@ class PlatformGame extends Scene {
   @override
   void onEnter() {
     super.onEnter();
-    AudioManager.instance.stopAllMusic();
+    //AudioManager.instance.stopAllMusic();
 
-    // AudioManager.instance.playMusic(Constants.backgroundMusic);
+    AudioManager.instance.playMusic(Constants.backgroundMusic);
   }
 
   @override
@@ -279,6 +281,20 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
         isGrounded = false;
       }
     }
+
+    if (collision.selfSide == CollisionSide.left &&
+        currentAnimation?.name != 'wallJump') {
+      if (!isFlipped) {
+        flip();
+      }
+      play('wallJump');
+    } else if (collision.selfSide == CollisionSide.right &&
+        currentAnimation?.name != 'wallJump') {
+      if (isFlipped) {
+        flip();
+      }
+      play('wallJump');
+    }
   }
 
   @override
@@ -298,6 +314,8 @@ class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   @override
   void onAdd() {
     super.onAdd();
+    final playerGetArea = PlayerGetArea.withPlayer(this);
+    attachObject(playerGetArea, const Offset(24, 24));
     var row = 0;
     addAnimation(
       SpriteAnimation(
@@ -458,8 +476,43 @@ class Jumper extends SpriteSheet with CollisionCallbacks {
   @override
   void onCollisionEnter(GameObject other, CollisionInfo collision) {
     super.onCollisionEnter(other, collision);
-    if (collision.selfSide == CollisionSide.top) {
+    if (collision.selfSide == CollisionSide.top && other is Player) {
       play('jump');
+      AudioManager.instance.playSound('spring.mp3');
     }
   }
+}
+
+class PlayerGetArea extends GameObject with CollisionCallbacks {
+  PlayerGetArea(this.player, {super.name = 'PlayerGetArea'}) : super() {
+    addCircleCollider(radius: 80, isTrigger: true, debugColor: Colors.orange);
+  }
+
+  final Player player;
+
+  PlayerGetArea.withPlayer(this.player) : super() {
+    addCircleCollider(radius: 80, isTrigger: true, debugColor: Colors.orange);
+  }
+
+  @override
+  void onCollisionEnter(GameObject other, CollisionInfo collision) {
+    super.onCollisionEnter(other, collision);
+
+    if (other.name == 'PlayerGem') {
+      Animations.moveTo(
+        other,
+        Offset(player.position.dx + 24, player.position.dy + 24),
+        0.2,
+        ease: EasingType.easeIn,
+        onComplete: () {
+          SceneManager.instance.current?.remove(other);
+        },
+      );
+      AudioManager.instance.playSound('coin.mp3');
+      return;
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {}
 }

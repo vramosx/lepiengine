@@ -84,6 +84,7 @@ class SpriteSheet extends GameObject {
   bool _animationEnded = false;
   bool flipX = false;
   bool flipY = false;
+  SpriteAnimation? get currentAnimation => _currentAnimation;
 
   SpriteSheet({required this.image, super.name, super.position, super.size});
 
