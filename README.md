@@ -15,7 +15,6 @@ It is under active (but irregular) development, maintained only when I have free
 
 ## 🎥 Demo
 [![LepiEngine Video Presentation](https://img.youtube.com/vi/cEBp_5-L-xE/0.jpg)](https://www.youtube.com/watch?v=cEBp_5-L-xE)
-https://www.youtube.com/watch?v=cEBp_5-L-xE
 
 ---
 
