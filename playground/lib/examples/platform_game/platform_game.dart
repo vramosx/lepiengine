@@ -24,7 +24,7 @@ class PlatformGame extends Scene {
   @override
   void onEnter() {
     super.onEnter();
-    //AudioManager.instance.stopAllMusic();
+    AudioManager.instance.stopAllMusic();
 
     AudioManager.instance.playMusic(Constants.backgroundMusic);
   }

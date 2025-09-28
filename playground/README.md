@@ -1,16 +1,69 @@
-# playground
+## LepiEngine Playground
 
-A new Flutter project.
+### Overview
+The LepiEngine Playground is a small Flutter application that showcases and tests features of the LepiEngine.
 
-## Getting Started
+### Requirements
+- Flutter SDK installed and configured
+- Dart SDK (bundled with Flutter)
+- For now, this monorepo checked out (the playground depends on the local `engine` package)
 
-This project is a starting point for a Flutter application.
+### Getting Started
+1. Navigate to the playground folder:
+```bash
+cd playground
+```
+2. Fetch dependencies:
+```bash
+flutter pub get
+```
+3. Run on your preferred platform (examples):
+```bash
+# macOS desktop
+flutter run -d macos
 
-A few resources to get you started if this is your first Flutter project:
+# Windows desktop (not tested)
+flutter run -d windows
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+# Linux desktop (not tested)
+flutter run -d linux
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# Web 
+flutter run -d chrome
+
+# iOS / Android (not tested)
+flutter run
+```
+
+### Available demos
+- **PlatformGame**: A minimal platformer demonstrating tiles, collisions, entities, and camera/viewport.
+- **AnimationShowcase**: A gallery of character animations to validate timing, easing, and sprite sequencing.
+- (Experimental) **TilemapEditor**: A simple in-app editor for tilemaps. It is present in the codebase but commented out in the default UI. - not working properly
+
+### Switching scenes
+The playground boots with `PlatformGame` by default. To switch the initial scene, open `playground/lib/main.dart` and change the value of `selectedScene` to one of the available scene names:
+- `PlatformGame`
+- `AnimationShowcase`
+- `TilemapEditor` (requires enabling the commented UI code in `main.dart`)
+
+### Assets
+Assets used by the playground are declared in `pubspec.yaml` under the `flutter/assets` section:
+- `assets/images/background/`
+- `assets/images/character/`
+- `assets/images/objects/`
+- `assets/images/tileset/`
+- `assets/images/lepi/`
+- `assets/music/`
+- `assets/sounds/`
+- `assets/data/`
+
+If you add new assets, remember to update `pubspec.yaml` and run `flutter pub get`.
+
+### Project structure (high level)
+- `lib/examples/platform_game/`: Platform game demo code
+- `lib/examples/animation_showcase/`: Animation showcase demo
+- `lib/tilemap_editor/`: Basic tilemap editor screens and models
+- `assets/`: Images, sounds, music, and data files used by the demos
+
+### License
+This playground is part of the LepiDreams/LepiEngine repository and follows the repository's license. See the root `LICENSE.md` for details.

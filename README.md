@@ -14,7 +14,8 @@ It is under active (but irregular) development, maintained only when I have free
 ---
 
 ## 🎥 Demo
-*Coming soon – video showcase will be added here.*
+[![LepiEngine Video Presentation](https://img.youtube.com/vi/cEBp_5-L-xE/0.jpg)](https://www.youtube.com/watch?v=cEBp_5-L-xE)
+https://www.youtube.com/watch?v=cEBp_5-L-xE
 
 ---
 
@@ -51,21 +52,26 @@ These are not meant to cover every possible case, but to give developers a **fas
   Out-of-the-box support for scenes (menu, gameplay, game over) with transitions, plus layer separation (background, entities, UI).  
   → Motivation: keep games organized and easy to reason about without boilerplate.
 
-- **Camera with Follow & Parallax**  
-  Built-in camera that can follow a target, handle zoom, and support parallax backgrounds.  
+- **Camera with Follow**  
+  Built-in camera that can follow a target and handle zoom.  
   → Motivation: camera handling is usually one of the first “hard” things new devs struggle with — so the engine solves it for you.
 
 - **Collision & Physics Basics**  
   Simple AABB and circle colliders, with optional gravity/velocity/acceleration.  
   → Motivation: enough physics to make most 2D games functional, without forcing a heavy physics engine.
 
-- **Sprite & SpriteSheet Animations**  
-  Easy-to-use sprites and animation system.  
-  → Motivation: handling frame-based animations should be straightforward, especially for beginners.
+- **Animation System**  
+  A powerful animation system with pre-built tweens and easing functions.
 
-- **Built-in Audio Manager**  
-  Encapsulated audio system (using audioplayers under the hood) for sounds and music.  
-  → Motivation: swap audio backend in the future if needed, while keeping a clean API for game developers.
+  → Motivation: animations are crucial for game feel, so the engine provides an easy-to-use but flexible system with:
+  - Common tweens (move, scale, rotate, fade, color)
+  - Visual effects (shake, pulse, blink, wiggle)
+  - Path following and custom animations
+  - Sequence and parallel composition
+  - Repeat and infinite loops
+  - Easing functions
+
+
 
 ---
 
@@ -86,9 +92,16 @@ These are not meant to cover every possible case, but to give developers a **fas
 - ✅ **Milestone 6** – Camera (zoom, follow, parallax)  
 - ✅ **Milestone 7** – Basic collisions (AABB & circle)  
 - ✅ **Milestone 8** – Simple physics (velocity, acceleration, gravity)  
-- ✅ **Milestone 9** – Advanced scene management (layers, push/pop/replace)  
+- ✅ **Milestone 9** – Scene management (layers, push/pop/replace)  
 - ✅ **Milestone 10** – Audio support  
+- ✅ **Milestone 11** – Animation Tools
 - ⏳ Future – More utilities, polish, and debugging tools  
+
+
+## Some Problems We Know About
+- During development, Hot Reload does not work, it is necessary to use Restart.
+- Sequential and parallel animations are experiencing some animation duplication and are not working correctly.
+- The scene is not at position 0,0 at start. It needs to be repositioned at game start.
 
 ---
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lepiengine/engine/core/input_handler.dart';
+import 'package:lepiengine/engine/engine_start.dart';
 import 'game_loop.dart';
 import 'scene.dart';
 import 'scene_manager.dart';
@@ -83,12 +84,14 @@ class _LepiGameState extends State<LepiGame> {
     // limpa todas as cenas
     SceneManager.instance.clearAllScenes();
 
+    SceneManager.instance.addScene(EngineStart(widget.initialScene));
+
     // adiciona todas as cenas
     for (final s in widget.scenes) {
       SceneManager.instance.addScene(s);
     }
 
     // define a cena inicial
-    SceneManager.instance.setScene(widget.initialScene);
+    SceneManager.instance.setScene("EngineStart");
   }
 }
