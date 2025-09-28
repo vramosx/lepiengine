@@ -93,7 +93,7 @@ These are not meant to cover every possible case, but to give developers a **fas
 - ✅ **Milestone 8** – Simple physics (velocity, acceleration, gravity)  
 - ✅ **Milestone 9** – Scene management (layers, push/pop/replace)  
 - ✅ **Milestone 10** – Audio support  
-- ✅ **Milestone 11** – Animation Tools
+- ↪️ **Milestone 11** – Animation Tools
 - ⏳ Future – More utilities, polish, and debugging tools  
 
 
