@@ -78,8 +78,8 @@ class Tilemap extends GameObject {
 
         final src = tileset.getTileRect(index);
         final dst = Rect.fromLTWH(
-          position.dx + x * tileWidth,
-          position.dy + y * tileHeight,
+          x * tileWidth.toDouble(),
+          y * tileHeight.toDouble(),
           tileWidth.toDouble(),
           tileHeight.toDouble(),
         );

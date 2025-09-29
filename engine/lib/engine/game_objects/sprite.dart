@@ -25,32 +25,19 @@ class Sprite extends GameObject {
 
     final paint = Paint()..color = Color.fromRGBO(255, 255, 255, opacity);
 
-    // Área de destino (onde será desenhada na tela)
-    final dstRect = position & size;
-
-    // Salvar estado do canvas para aplicar transformações
-    canvas.save();
-
-    // Aplicar transformações de flip
+    // O canvas já está em espaço local do GameObject via renderTree (inclui anchor/pivô).
+    // Desenhamos a imagem ocupando (0,0)-(w,h). Flip preserva posição visual.
     if (flipX || flipY) {
-      final dx = flipX ? -1.0 : 1.0;
-      final dy = flipY ? -1.0 : 1.0;
-
-      // Translada para o centro, aplica flip, volta
-      canvas.translate(dstRect.center.dx, dstRect.center.dy);
-      canvas.scale(dx, dy);
-      canvas.translate(-dstRect.center.dx, -dstRect.center.dy);
+      if (flipX) canvas.translate(size.width, 0);
+      if (flipY) canvas.translate(0, size.height);
+      canvas.scale(flipX ? -1.0 : 1.0, flipY ? -1.0 : 1.0);
     }
 
-    // Desenhar imagem
-    canvas.drawImageRect(
-      image,
-      sourceRect ??
-          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-      dstRect,
-      paint,
-    );
+    final dstRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final srcRect =
+        sourceRect ??
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
 
-    canvas.restore();
+    canvas.drawImageRect(image, srcRect, dstRect, paint);
   }
 }

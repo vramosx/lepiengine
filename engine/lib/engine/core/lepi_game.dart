@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lepiengine/engine/core/input_handler.dart';
 import 'package:lepiengine/engine/engine_start.dart';
@@ -92,6 +93,10 @@ class _LepiGameState extends State<LepiGame> {
     }
 
     // define a cena inicial
-    SceneManager.instance.setScene("EngineStart");
+    if (kDebugMode) {
+      SceneManager.instance.setScene(widget.initialScene);
+    } else {
+      SceneManager.instance.setScene("EngineStart");
+    }
   }
 }

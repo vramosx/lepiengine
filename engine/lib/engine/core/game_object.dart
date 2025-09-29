@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'collider.dart';
@@ -6,7 +8,7 @@ import 'collider.dart';
 typedef ZIndex = double;
 
 /// Base de todo elemento renderizável/atualizável do jogo.
-abstract class GameObject {
+class GameObject {
   GameObject({
     this.name,
     Offset? position,
@@ -88,7 +90,7 @@ abstract class GameObject {
 
   /// Renderização do objeto (apenas o próprio). Use tamanho/anchor/transform.
   /// Dica: desenhe no espaço local com origem (0,0) e use `size` para limites.
-  void render(Canvas canvas);
+  void render(Canvas canvas) {}
 
   /// Renderiza este objeto + filhos, já aplicando a transformação local.
   void renderTree(Canvas canvas) {
@@ -96,24 +98,35 @@ abstract class GameObject {
 
     canvas.save();
 
-    // Aplica transformação local: translate -> rotate -> scale -> anchor
+    // Aplica transformação local para que rotação/escala ocorram ao redor do anchor (pivô)
+    // Ordem: translate(position) -> translate(+pivot) -> rotate -> scale -> translate(-pivot)
     // 1) mover para posição global
     canvas.translate(position.dx, position.dy);
-    // 2) rotação
-    if (rotation != 0) {
-      canvas.rotate(rotation);
-    }
-    // 3) escala
-    if (scale.dx != 1 || scale.dy != 1) {
-      canvas.scale(scale.dx, scale.dy);
-    }
-    // 4) compensar âncora (leva (0,0) para o pivô)
     if (size != Size.zero) {
+      // 2) mover para o pivô (anchor) para que rotação/escala ocorram ao redor dele
       final Offset pivot = Offset(
         size.width * anchor.dx,
         size.height * anchor.dy,
       );
+      canvas.translate(pivot.dx, pivot.dy);
+      // 3) rotação
+      if (rotation != 0) {
+        canvas.rotate(rotation);
+      }
+      // 4) escala
+      if (scale.dx != 1 || scale.dy != 1) {
+        canvas.scale(scale.dx, scale.dy);
+      }
+      // 5) compensar âncora (trazer de volta ao espaço local)
       canvas.translate(-pivot.dx, -pivot.dy);
+    } else {
+      // Sem tamanho definido, aplica apenas rotação/escala em torno da posição
+      if (rotation != 0) {
+        canvas.rotate(rotation);
+      }
+      if (scale.dx != 1 || scale.dy != 1) {
+        canvas.scale(scale.dx, scale.dy);
+      }
     }
 
     // Aplica opacidade/tint via layer se necessário
@@ -235,6 +248,13 @@ abstract class GameObject {
     return Offset(lx, ly);
   }
 
+  // graus locais (0..360)
+  double localDegrees() {
+    double deg = (rotation * 180 / math.pi) % 360;
+    if (deg < 0) deg += 360;
+    return deg;
+  }
+
   /// Hit test básico no espaço local (retângulo do size).
   bool hitTest(Offset worldPoint) {
     if (size == Size.zero) return false;
@@ -289,17 +309,28 @@ abstract class GameObject {
     for (final node in chain.reversed) {
       // translate (posição)
       m = m..translate(node.position.dx, node.position.dy);
-      // rotate
-      if (node.rotation != 0) m = m..rotateZ(node.rotation);
-      // scale
-      if (node.scale.dx != 1 || node.scale.dy != 1) {
-        m = m..scale(node.scale.dx, node.scale.dy, 1.0);
-      }
-      // anchor: desloca pivô
+
       if (node.size != Size.zero) {
+        // mover para o pivô (anchor) antes de rotacionar/escalar
         final px = node.size.width * node.anchor.dx;
         final py = node.size.height * node.anchor.dy;
+        m = m..translate(px, py);
+
+        // rotate em torno do pivô
+        if (node.rotation != 0) m = m..rotateZ(node.rotation);
+        // scale em torno do pivô
+        if (node.scale.dx != 1 || node.scale.dy != 1) {
+          m = m..scale(node.scale.dx, node.scale.dy, 1.0);
+        }
+
+        // retorna do pivô para o espaço local
         m = m..translate(-px, -py);
+      } else {
+        // Sem tamanho (pivô indefinido): aplica rotate/scale ao redor da posição
+        if (node.rotation != 0) m = m..rotateZ(node.rotation);
+        if (node.scale.dx != 1 || node.scale.dy != 1) {
+          m = m..scale(node.scale.dx, node.scale.dy, 1.0);
+        }
       }
     }
     return m.storage;
@@ -419,6 +450,8 @@ mixin PhysicsBody on GameObject {
   // Propriedades básicas de física (configuráveis)
   double gravity = 800.0;
   double maxFallSpeed = 500.0;
+  bool enableGravity = true;
+  double maxVelocity = 0.0;
 
   // Estado interno básico
   Offset _velocity = Offset.zero;
@@ -431,11 +464,30 @@ mixin PhysicsBody on GameObject {
   // Física básica (chamada automaticamente pela Scene)
   void updatePhysics(double dt) {
     // Aplica gravidade
-    _velocity = Offset(_velocity.dx, _velocity.dy + gravity * dt);
+    if (enableGravity) {
+      _velocity = Offset(_velocity.dx, _velocity.dy + gravity * dt);
+    }
 
     // Limita velocidade de queda
-    if (_velocity.dy > maxFallSpeed) {
+    if (_velocity.dy > maxFallSpeed && enableGravity) {
       _velocity = Offset(_velocity.dx, maxFallSpeed);
+    }
+
+    // // Limita velocidade máxima
+    if (maxVelocity > 0) {
+      if (_velocity.dy > maxVelocity) {
+        _velocity = Offset(_velocity.dx, maxVelocity);
+      }
+
+      if (_velocity.dx > maxVelocity) {
+        _velocity = Offset(maxVelocity, _velocity.dy);
+      }
+      if (_velocity.dx < -maxVelocity) {
+        _velocity = Offset(-maxVelocity, _velocity.dy);
+      }
+      if (_velocity.dy < -maxVelocity) {
+        _velocity = Offset(_velocity.dx, -maxVelocity);
+      }
     }
 
     // Aplica movimento

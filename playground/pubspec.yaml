@@ -67,6 +67,7 @@ flutter:
     - assets/images/objects/
     - assets/images/tileset/
     - assets/images/lepi/
+    - assets/images/ships_battle/
     - assets/music/
     - assets/sounds/
     - assets/data/

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lepiengine/engine/core/viewport.dart';
 import 'package:lepiengine/main.dart';
 import 'package:lepiengine_playground/examples/platform_game/platform_game.dart';
+import 'package:lepiengine_playground/examples/ships_battle/ships_battle.dart';
 import 'package:lepiengine_playground/tilemap_editor/tilemap_editor_screen.dart';
 import 'package:lepiengine_playground/examples/animation_showcase/animation_showcase.dart';
-import 'package:lepiengine/engine/core/scene_manager.dart';
 
 void main() {
   runApp(const MyGame());
@@ -18,9 +18,10 @@ class MyGame extends StatefulWidget {
 }
 
 class _MyGameState extends State<MyGame> {
-  String selectedScene = 'AnimationShowcase';
+  String selectedScene = 'ShipsBattle';
   final platformGame = PlatformGame();
   final animationShowcase = AnimationShowcase();
+  final shipsBattle = ShipsBattle();
 
   // final scenes = ['LepiStart'];
 
@@ -66,7 +67,7 @@ class _MyGameState extends State<MyGame> {
             selectedScene == 'TilemapEditor'
                 ? const TilemapEditorScreen()
                 : LepiGame(
-                    scenes: [animationShowcase, platformGame],
+                    scenes: [animationShowcase, platformGame, shipsBattle],
                     initialScene: selectedScene,
                     viewportConfig: const ViewportConfig(
                       referenceWidth: 1024,

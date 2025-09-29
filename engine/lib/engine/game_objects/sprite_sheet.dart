@@ -140,20 +140,18 @@ class SpriteSheet extends GameObject {
 
     final paint = Paint();
 
-    // Usa o sistema de coordenadas local do GameObject (0,0 com anchor aplicado)
-    // O canvas já está transformado pela renderTree() do GameObject
-    final left = flipX
-        ? (size.width * anchor.dx - size.width)
-        : -size.width * anchor.dx;
-    final top = flipY ? size.height * anchor.dy : -size.height * anchor.dy;
-    final dstRect = Rect.fromLTWH(left, top, size.width, size.height);
-
+    // O canvas já está transformado por renderTree() para rotacionar/escalar em torno do anchor.
+    // Portanto, desenhamos no espaço local padrão (0,0)-(w,h) sem compensar anchor aqui.
+    // Ajuste de flip mantém a posição visual do sprite.
     if (flipX || flipY) {
+      if (flipX) canvas.translate(size.width, 0);
+      if (flipY) canvas.translate(0, size.height);
       final dx = flipX ? -1.0 : 1.0;
       final dy = flipY ? -1.0 : 1.0;
       canvas.scale(dx, dy);
     }
 
+    final dstRect = Rect.fromLTWH(0, 0, size.width, size.height);
     canvas.drawImageRect(image, frameRect, dstRect, paint);
   }
 }
