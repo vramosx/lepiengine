@@ -176,25 +176,28 @@ class _InputHandlerState extends State<InputHandler> {
           details.velocity.pixelsPerSecond,
         );
       },
-      child: KeyboardListener(
+      child: Focus(
         focusNode: _focusNode,
         autofocus: true,
-        onKeyEvent: (KeyEvent event) {
-          final key = event.logicalKey.keyLabel.isNotEmpty
-              ? event.logicalKey.keyLabel
-              : event.logicalKey.debugName ?? "";
+        onKeyEvent: (FocusNode node, KeyEvent event) {
+          final key = event.logicalKey.debugName ?? event.logicalKey.keyLabel;
 
           if (event is KeyDownEvent) {
             if (!InputManager.instance.isPressed(key)) {
               InputManager.instance.keyDown(key);
               _dispatchKeyDown(key);
             }
+            return KeyEventResult.handled;
           } else if (event is KeyUpEvent) {
             InputManager.instance.keyUp(key);
             _dispatchKeyUp(key);
+            return KeyEventResult.handled;
           } else if (event is KeyRepeatEvent) {
             _dispatchKeyDown(key);
+            return KeyEventResult.handled;
           }
+
+          return KeyEventResult.ignored;
         },
         child: widget.child,
       ),

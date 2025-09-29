@@ -129,9 +129,9 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
       addVelocity(Offset(vx, vy));
     }
 
-    // debugPrint('Key ${InputManager.instance.keysPressed}');
+    debugPrint('Key ${InputManager.instance.keysPressed}');
 
-    if (InputManager.instance.isPressed(' ')) {
+    if (InputManager.instance.isPressed('Space')) {
       shoot();
     }
   }
