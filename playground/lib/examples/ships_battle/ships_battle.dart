@@ -59,13 +59,16 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
   int selectedShip = 0;
   double speed = 0.5;
   double maxSpeed = 10;
+  double reloadTime = 0.2;
+  double reloadTimer = 0;
   int bulletCount = 0;
-  int maxBulletCount = 1;
+  int maxBulletCount = 50;
   GameObject? bulletPosition;
 
   Future<void> shoot() async {
-    if (bulletCount >= maxBulletCount) return;
+    if (bulletCount >= maxBulletCount || reloadTimer > 0) return;
     bulletCount++;
+    reloadTimer = reloadTime;
     final bulletImage = await AssetLoader.loadImage('ships_battle/bullet.png');
     Bullet bullet = Bullet(image: bulletImage);
 
@@ -80,14 +83,26 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
     // Move na direção da rotação atual do Ship (frente do navio)
     final dir = Offset(math.sin(bullet.rotation), -math.cos(bullet.rotation));
     final dest = bullet.position + dir * 400;
+    late SpriteSheet bulletWaterEffect;
+
+    bulletWaterEffect = await bulletWaterEffectBuilder(() {
+      scene.remove(bulletWaterEffect);
+    });
+    bulletWaterEffect.rotation = bullet.rotation;
+    bulletWaterEffect.anchor = const Offset(0, 0);
+    bulletWaterEffect.position = bullet.position;
 
     Animations.moveTo(
       bullet,
       dest,
-      0.5,
+      1,
       onComplete: () {
         scene.remove(bullet);
         bulletCount--;
+
+        bulletWaterEffect.position = bullet.position;
+        bulletWaterEffect.play('waterEffect');
+        scene.add(bulletWaterEffect);
       },
     );
   }
@@ -96,6 +111,7 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
   void update(double dt) {
     super.update(dt);
     _handleInput();
+    reloadTimer = math.max(0, reloadTimer - dt);
   }
 
   @override
@@ -129,8 +145,6 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
       addVelocity(Offset(vx, vy));
     }
 
-    debugPrint('Key ${InputManager.instance.keysPressed}');
-
     if (InputManager.instance.isPressed('Space')) {
       shoot();
     }
@@ -150,18 +164,44 @@ class BulletPosition extends GameObject {
   BulletPosition({super.name = 'BulletPosition'}) : super() {
     size = const Size(6, 6);
     anchor = const Offset(0, 0);
-    tintColor = Colors.red;
   }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height / 2),
-      size.width,
-      Paint()
-        ..color = Colors.black.withAlpha(200)
-        ..style = PaintingStyle.fill,
-    );
+    canvas.hashCode;
+    // debug position - do not remove
+    // canvas.drawCircle(
+    //   Offset(size.width / 2, size.height / 2),
+    //   size.width,
+    //   Paint()
+    //     ..color = Colors.black.withAlpha(200)
+    //     ..style = PaintingStyle.fill,
+    // );
   }
 }
+
+Future<SpriteSheet> bulletWaterEffectBuilder(Function()? onEnd) =>
+    SpriteSheetBuilder.build(
+      name: "bulletWaterEffect",
+      imagePath: "ships_battle/bullet_water_effect.png",
+      size: Size(32, 32),
+      animations: [
+        SpriteAnimation(
+          name: "waterEffect",
+          frameSize: Size(32, 32),
+          frames: [
+            Frame(col: 0, row: 0),
+            Frame(col: 1, row: 0),
+            Frame(col: 2, row: 0),
+            Frame(col: 3, row: 0),
+          ],
+          frameDuration: 0.1,
+          loop: false,
+          onEnd: () {
+            onEnd?.call();
+          },
+        ),
+      ],
+      initialAnimation: "waterEffect",
+    );
