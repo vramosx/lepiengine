@@ -194,10 +194,24 @@ class CollisionManager {
       // print('_resolveCollisions: normalForB: $normalForB');
 
       // Resolve física automaticamente para objetos com PhysicsBody
-      // CORREÇÃO: Só resolve para objetos dinâmicos, não estáticos
-      if (gameObjectA is PhysicsBody &&
+      // Distribui a correção entre os dois objetos dinâmicos (50/50)
+      final bool movableA =
+          gameObjectA is PhysicsBody &&
           !colliderB.isTrigger &&
-          !colliderA.isStatic) {
+          !colliderA.isStatic;
+      final bool movableB =
+          gameObjectB is PhysicsBody &&
+          !colliderA.isTrigger &&
+          !colliderB.isStatic;
+
+      final double shareA = (movableA && movableB)
+          ? 0.5
+          : (movableA ? 1.0 : 0.0);
+      final double shareB = (movableA && movableB)
+          ? 0.5
+          : (movableB ? 1.0 : 0.0);
+
+      if (movableA && shareA > 0) {
         final correctNormal = needsInversion ? normalForB : normalForA;
         final selfSide = _sideFromNormal(correctNormal);
         final otherSide = _oppositeSide(selfSide);
@@ -207,7 +221,7 @@ class CollisionManager {
             other: colliderB,
             intersectionPoint: collision.intersectionPoint,
             normal: correctNormal,
-            penetrationDepth: collision.penetrationDepth,
+            penetrationDepth: collision.penetrationDepth * shareA,
             isEntering: collision.isEntering,
             selfSide: selfSide,
             otherSide: otherSide,
@@ -215,9 +229,7 @@ class CollisionManager {
         );
       }
 
-      if (gameObjectB is PhysicsBody &&
-          !colliderA.isTrigger &&
-          !colliderB.isStatic) {
+      if (movableB && shareB > 0) {
         final correctNormal = needsInversion ? normalForA : normalForB;
         final selfSide = _sideFromNormal(correctNormal);
         final otherSide = _oppositeSide(selfSide);
@@ -227,7 +239,7 @@ class CollisionManager {
             other: colliderA,
             intersectionPoint: collision.intersectionPoint,
             normal: correctNormal,
-            penetrationDepth: collision.penetrationDepth,
+            penetrationDepth: collision.penetrationDepth * shareB,
             isEntering: collision.isEntering,
             selfSide: selfSide,
             otherSide: otherSide,

@@ -2,12 +2,12 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show Colors, debugPrint;
+import 'package:flutter/material.dart' show Colors;
 import 'package:lepiengine/engine/core/collider.dart';
 import 'package:lepiengine/main.dart';
 
 class ShipsBattle extends Scene {
-  ShipsBattle({super.name = 'ShipsBattle'})
+  ShipsBattle({super.name = 'ShipsBattle', super.debugCollisions = true})
     : super(clearColor: Colors.blueAccent);
 
   @override
@@ -19,8 +19,6 @@ class ShipsBattle extends Scene {
   Future<void> _loadScene() async {
     final player = Player();
     add(player);
-
-    // camera.follow(ship);
   }
 }
 
@@ -38,8 +36,11 @@ class Player extends GameObject with KeyboardControllable, CollisionCallbacks {
   }
 
   Future<void> loadPlayer() async {
+    SceneManager.instance.current?.setLayerOrder('waterEffects', 1);
+    SceneManager.instance.current?.setLayerOrder('entities', 2);
     final shipImage = await AssetLoader.loadImage('ships_battle/ships.png');
     ship = Ship(image: shipImage);
+    ship!.position = const Offset(0, 0);
     addChild(ship!);
   }
 
@@ -70,6 +71,20 @@ class Player extends GameObject with KeyboardControllable, CollisionCallbacks {
   }
 }
 
+class Enemy extends GameObject with CollisionCallbacks {
+  Enemy({super.name = 'Enemy'}) : super() {
+    size = const Size(128, 128);
+    anchor = const Offset(0.5, 0.5);
+    position = const Offset(0, 0);
+
+    addAABBCollider(
+      size: Size(128, 128),
+      anchor: ColliderAnchor.bottomCenter,
+      debugColor: Colors.red,
+    );
+  }
+}
+
 class Ship extends SpriteSheet with PhysicsBody {
   Ship({super.name = 'Ship', required super.image}) : super() {
     size = const Size(128, 128);
@@ -78,12 +93,6 @@ class Ship extends SpriteSheet with PhysicsBody {
 
     enableGravity = false;
     maxVelocity = 50;
-
-    addAABBCollider(
-      size: Size(128, 128),
-      anchor: ColliderAnchor.bottomCenter,
-      debugColor: Colors.blue,
-    );
 
     for (var i = 0; i < 6; i++) {
       for (var j = 0; j < 4; j++) {
@@ -100,6 +109,12 @@ class Ship extends SpriteSheet with PhysicsBody {
     attachObject(bulletPosition!, Offset(61, 10));
 
     play('ship$selectedShip-life0');
+
+    addAABBCollider(
+      size: Size(64, 115),
+      anchor: ColliderAnchor.center,
+      debugColor: Colors.red,
+    );
   }
 
   int selectedShip = 1;
@@ -109,6 +124,10 @@ class Ship extends SpriteSheet with PhysicsBody {
   double reloadTimer = 0;
   int bulletCount = 0;
   int maxBulletCount = 50;
+  int waterEffectCount = 0;
+  int maxWaterEffectCount = 12;
+  double waterEffectTimer = 0;
+  double waterEffectInterval = 0.2;
   GameObject? bulletPosition;
 
   Future<void> shoot() async {
@@ -148,15 +167,32 @@ class Ship extends SpriteSheet with PhysicsBody {
 
         bulletWaterEffect.position = bullet.position;
         bulletWaterEffect.play('waterEffect');
-        scene.add(bulletWaterEffect);
+        scene.add(bulletWaterEffect, layer: 'waterEffects');
       },
     );
+  }
+
+  Future<void> createWaterEffect() async {
+    if (waterEffectCount >= maxWaterEffectCount || waterEffectTimer > 0) return;
+    waterEffectCount++;
+    waterEffectTimer = waterEffectInterval;
+    final scene = SceneManager.instance.current!;
+    late SpriteSheet waterEffect;
+    waterEffect = await waterEffectBuilder(() {
+      scene.remove(waterEffect);
+      waterEffectCount--;
+    });
+    waterEffect.rotation = rotation;
+    waterEffect.anchor = const Offset(0, 0);
+    waterEffect.position = localToWorld(Offset(50, 100));
+    scene.add(waterEffect, layer: 'waterEffects');
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     reloadTimer = math.max(0, reloadTimer - dt);
+    waterEffectTimer = math.max(0, waterEffectTimer - dt);
   }
 
   void rotateLeft() {
@@ -177,6 +213,7 @@ class Ship extends SpriteSheet with PhysicsBody {
           radians,
         ); // Velocidade máxima * componente y (negativo pois y cresce para baixo)
     addVelocity(Offset(vx, vy));
+    createWaterEffect();
   }
 
   void backward() {
@@ -234,6 +271,31 @@ Future<SpriteSheet> bulletWaterEffectBuilder(Function()? onEnd) =>
             Frame(col: 3, row: 0),
           ],
           frameDuration: 0.1,
+          loop: false,
+          onEnd: () {
+            onEnd?.call();
+          },
+        ),
+      ],
+      initialAnimation: "waterEffect",
+    );
+
+Future<SpriteSheet> waterEffectBuilder(Function()? onEnd) =>
+    SpriteSheetBuilder.build(
+      name: "waterEffect",
+      imagePath: "ships_battle/water_effect.png",
+      size: Size(32, 32),
+      animations: [
+        SpriteAnimation(
+          name: "waterEffect",
+          frameSize: Size(32, 32),
+          frames: [
+            Frame(col: 0, row: 0),
+            Frame(col: 1, row: 0),
+            Frame(col: 2, row: 0),
+            Frame(col: 3, row: 0),
+          ],
+          frameDuration: 0.2,
           loop: false,
           onEnd: () {
             onEnd?.call();

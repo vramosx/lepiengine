@@ -19,7 +19,7 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
 
   @override
   void onEnter() {

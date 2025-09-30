@@ -1,6 +1,15 @@
 import 'dart:ui';
 import 'game_object.dart';
 
+// Helpers de vetor para Offsets
+extension _OffsetVectorUtils on Offset {
+  Offset normalized() {
+    final double len = distance;
+    if (len == 0) return const Offset(0, 0);
+    return this / len;
+  }
+}
+
 /// Tipos de anchor para colliders
 enum ColliderAnchor {
   topLeft,
@@ -90,8 +99,15 @@ abstract class Collider {
       gameObject.size.height * anchorOffset.dy,
     );
 
-    final gameObjectPos = gameObject.localToWorld(attachPointInLocal);
-    return gameObjectPos + offset;
+    // IMPORTANTE: o offset deve estar no espaço LOCAL para que seja
+    // afetado por rotação/escala do GameObject. Antes, somávamos o
+    // offset em world space, o que fazia o collider não acompanhar a
+    // rotação do objeto. Ao transformar (attachPointInLocal + offset)
+    // para o mundo, garantimos que o deslocamento rode junto.
+    final Offset worldPos = gameObject.localToWorld(
+      attachPointInLocal + offset,
+    );
+    return worldPos;
   }
 
   /// Converte anchor enum para offset (0..1)
@@ -151,23 +167,142 @@ class AABBCollider extends Collider {
 
   @override
   Rect getAABB() {
-    final pos = worldPosition;
+    // Calcula os 4 cantos NO ESPAÇO LOCAL do GameObject,
+    // aplicando o deslocamento relativo e o anchor do collider.
     final anchorPos = anchorOffset;
+    final Offset localAnchorPoint =
+        Offset(
+          gameObject.size.width * anchorPos.dx,
+          gameObject.size.height * anchorPos.dy,
+        ) +
+        offset; // offset em espaço local
 
-    // if (size.width == 48) {
-    //   print('AABB Debug: size.width: ${size.width}');
-    // }
+    final double leftLocal = -size.width * anchorPos.dx;
+    final double topLocal = -size.height * anchorPos.dy;
 
-    final left = pos.dx - (size.width * anchorPos.dx);
-    final top = pos.dy - (size.height * anchorPos.dy);
+    final List<Offset> localCorners = <Offset>[
+      Offset(leftLocal, topLocal),
+      Offset(leftLocal + size.width, topLocal),
+      Offset(leftLocal, topLocal + size.height),
+      Offset(leftLocal + size.width, topLocal + size.height),
+    ].map((c) => localAnchorPoint + c).toList();
 
-    return Rect.fromLTWH(left, top, size.width, size.height);
+    // Transforma os cantos para o mundo considerando rotação/escala do GameObject.
+    final List<Offset> worldCorners = localCorners
+        .map(gameObject.localToWorld)
+        .toList();
+
+    double minX = worldCorners.first.dx;
+    double maxX = worldCorners.first.dx;
+    double minY = worldCorners.first.dy;
+    double maxY = worldCorners.first.dy;
+
+    for (final c in worldCorners.skip(1)) {
+      if (c.dx < minX) minX = c.dx;
+      if (c.dx > maxX) maxX = c.dx;
+      if (c.dy < minY) minY = c.dy;
+      if (c.dy > maxY) maxY = c.dy;
+    }
+
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
+
+  /// Retorna os 4 cantos no mundo na ordem:
+  /// topLeft, topRight, bottomRight, bottomLeft.
+  List<Offset> getWorldCorners() {
+    final anchorPos = anchorOffset;
+    final Offset localAnchorPoint =
+        Offset(
+          gameObject.size.width * anchorPos.dx,
+          gameObject.size.height * anchorPos.dy,
+        ) +
+        offset;
+
+    final double leftLocal = -size.width * anchorPos.dx;
+    final double topLocal = -size.height * anchorPos.dy;
+
+    final List<Offset> localCorners = <Offset>[
+      Offset(leftLocal, topLocal),
+      Offset(leftLocal + size.width, topLocal),
+      Offset(leftLocal + size.width, topLocal + size.height),
+      Offset(leftLocal, topLocal + size.height),
+    ].map((c) => localAnchorPoint + c).toList();
+
+    return localCorners.map(gameObject.localToWorld).toList();
+  }
+
+  Offset _polygonCenter(List<Offset> pts) {
+    double sx = 0;
+    double sy = 0;
+    for (final p in pts) {
+      sx += p.dx;
+      sy += p.dy;
+    }
+    final int n = pts.length;
+    return Offset(sx / n, sy / n);
+  }
+
+  // Projeta um conjunto de pontos no eixo e retorna min/max escalares
+  (double, double) _projectOntoAxis(List<Offset> pts, Offset axis) {
+    final double ax = axis.dx;
+    final double ay = axis.dy;
+    double min = pts.first.dx * ax + pts.first.dy * ay;
+    double max = min;
+    for (final p in pts.skip(1)) {
+      final double proj = p.dx * ax + p.dy * ay;
+      if (proj < min) min = proj;
+      if (proj > max) max = proj;
+    }
+    return (min, max);
+  }
+
+  // Calcula colisão OBB x OBB via SAT. Retorna par (penetração, normal)
+  (double, Offset)? _satOBB(List<Offset> a, List<Offset> b) {
+    final List<Offset> axes = <Offset>[
+      (a[1] - a[0]).normalized(),
+      (a[3] - a[0]).normalized(),
+      (b[1] - b[0]).normalized(),
+      (b[3] - b[0]).normalized(),
+    ];
+
+    double minOverlap = double.infinity;
+    Offset bestAxis = const Offset(0, 0);
+
+    for (final axis in axes) {
+      final (double amin, double amax) = _projectOntoAxis(a, axis);
+      final (double bmin, double bmax) = _projectOntoAxis(b, axis);
+      final double overlap = _intervalOverlap(amin, amax, bmin, bmax);
+      if (overlap <= 0) return null; // eixo separador encontrado
+      if (overlap < minOverlap) {
+        minOverlap = overlap;
+        bestAxis = axis;
+      }
+    }
+
+    // Orienta a normal para mover A PARA LONGE de B (B → A)
+    final Offset centerA = _polygonCenter(a);
+    final Offset centerB = _polygonCenter(b);
+    final Offset directionAB = (centerB - centerA);
+    final double dot =
+        directionAB.dx * bestAxis.dx + directionAB.dy * bestAxis.dy;
+    // Se bestAxis aponta na mesma direção de A→B (dot > 0), inverta
+    if (dot > 0) bestAxis = Offset(-bestAxis.dx, -bestAxis.dy);
+
+    return (minOverlap, bestAxis);
+  }
+
+  double _intervalOverlap(double amin, double amax, double bmin, double bmax) {
+    final double left = (amax < bmax) ? amax : bmax;
+    final double right = (amin > bmin) ? amin : bmin;
+    return left - right;
   }
 
   @override
   bool intersects(Collider other) {
     if (other is AABBCollider) {
-      return getAABB().overlaps(other.getAABB());
+      final List<Offset> a = getWorldCorners();
+      final List<Offset> b = other.getWorldCorners();
+      return _satOBB(a, b) != null;
     } else if (other is CircleCollider) {
       return other.intersects(this); // Delega para CircleCollider
     }
@@ -179,7 +314,7 @@ class AABBCollider extends Collider {
     if (!intersects(other)) return null;
 
     if (other is AABBCollider) {
-      return _getAABBIntersection(other);
+      return _getOBBIntersection(other);
     } else if (other is CircleCollider) {
       final circleInfo = other.getIntersection(this);
       if (circleInfo == null) return null;
@@ -196,75 +331,90 @@ class AABBCollider extends Collider {
     return null;
   }
 
-  CollisionInfo _getAABBIntersection(AABBCollider other) {
-    final rect1 = getAABB();
-    final rect2 = other.getAABB();
+  CollisionInfo _getOBBIntersection(AABBCollider other) {
+    final List<Offset> a = getWorldCorners();
+    final List<Offset> b = other.getWorldCorners();
+    final (double, Offset)? sat = _satOBB(a, b);
+    // sat não será nulo aqui, pois já validamos intersects
+    final double penetration = sat!.$1;
+    final Offset normal = sat.$2;
 
-    // print('AABB Debug: rect1 (${gameObject.runtimeType}): $rect1');
-    // print('AABB Debug: rect2 (${other.gameObject.runtimeType}): $rect2');
-
-    final intersection = rect1.intersect(rect2);
-
-    // Calcula a normal baseada na menor sobreposição
-    final overlapX = intersection.width;
-    final overlapY = intersection.height;
-
-    // print('AABB Debug: overlapX: $overlapX, overlapY: $overlapY');
-
-    final Offset normal;
-    final double penetrationDepth;
-
-    if (overlapX < overlapY) {
-      // Separação horizontal (lógica original)
-      penetrationDepth = overlapX;
-      if (rect1.center.dx < rect2.center.dx) {
-        normal = const Offset(-1, 0); // Empurra para a esquerda
-      } else {
-        normal = const Offset(1, 0); // Empurra para a direita
-      }
-      // print(
-      //   'AABB Debug: Separação HORIZONTAL (menor overlap), normal: $normal',
-      // );
-    } else {
-      // Separação vertical (lógica original)
-      penetrationDepth = overlapY;
-      if (rect1.center.dy < rect2.center.dy) {
-        normal = const Offset(0, -1); // Empurra para cima
-      } else {
-        normal = const Offset(0, 1); // Empurra para baixo
-      }
-      // print('AABB Debug: Separação VERTICAL (menor overlap), normal: $normal');
-    }
+    // Ponto de contato aproximado: centro entre os centros, ajustado pela normal
+    final Offset centerA = _polygonCenter(a);
+    final Offset centerB = _polygonCenter(b);
+    final Offset contact = (centerA + centerB) / 2;
 
     return CollisionInfo(
       other: other,
-      intersectionPoint: intersection.center,
+      intersectionPoint: contact,
       normal: normal,
-      penetrationDepth: penetrationDepth,
-      isEntering: true, // Será determinado pelo CollisionManager
+      penetrationDepth: penetration,
+      isEntering: true,
     );
   }
 
   @override
   bool containsPoint(Offset worldPoint) {
-    return getAABB().contains(worldPoint);
+    // Converte o ponto para o espaço local do GameObject e verifica
+    // contra o retângulo local do collider (considerando anchor/offset).
+    final anchorPos = anchorOffset;
+    final Offset localAnchorPoint =
+        Offset(
+          gameObject.size.width * anchorPos.dx,
+          gameObject.size.height * anchorPos.dy,
+        ) +
+        offset;
+
+    final Offset lp = gameObject.worldToLocal(worldPoint) - localAnchorPoint;
+
+    final double left = -size.width * anchorPos.dx;
+    final double top = -size.height * anchorPos.dy;
+    final double right = left + size.width;
+    final double bottom = top + size.height;
+
+    return lp.dx >= left && lp.dx <= right && lp.dy >= top && lp.dy <= bottom;
   }
 
   @override
   void debugRender(Canvas canvas) {
-    final rect = getAABB();
     final paint = Paint()
       ..color = debugColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
-    canvas.drawRect(rect, paint);
+    // Desenha o retângulo REAL (rotacionado) do collider para debug.
+    final anchorPos = anchorOffset;
+    final Offset localAnchorPoint =
+        Offset(
+          gameObject.size.width * anchorPos.dx,
+          gameObject.size.height * anchorPos.dy,
+        ) +
+        offset;
 
-    // Desenha um ponto no centro para indicar a posição
-    final centerPaint = Paint()
-      ..color = debugColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(rect.center, 2.0, centerPaint);
+    final double leftLocal = -size.width * anchorPos.dx;
+    final double topLocal = -size.height * anchorPos.dy;
+
+    final List<Offset> worldCorners = <Offset>[
+      Offset(leftLocal, topLocal),
+      Offset(leftLocal + size.width, topLocal),
+      Offset(leftLocal + size.width, topLocal + size.height),
+      Offset(leftLocal, topLocal + size.height),
+    ].map((c) => gameObject.localToWorld(localAnchorPoint + c)).toList();
+
+    final Path path = Path()
+      ..moveTo(worldCorners[0].dx, worldCorners[0].dy)
+      ..lineTo(worldCorners[1].dx, worldCorners[1].dy)
+      ..lineTo(worldCorners[2].dx, worldCorners[2].dy)
+      ..lineTo(worldCorners[3].dx, worldCorners[3].dy)
+      ..close();
+    canvas.drawPath(path, paint);
+
+    // Também desenha o AABB resultante (útil para entender broad-phase)
+    final Rect aabb = getAABB();
+    final Paint aabbPaint = Paint()
+      ..color = debugColor.withOpacity(0.4)
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(aabb, aabbPaint);
   }
 }
 
@@ -308,23 +458,61 @@ class CircleCollider extends Collider {
       final distance = (worldCenter - other.worldCenter).distance;
       return distance < (radius + other.radius);
     } else if (other is AABBCollider) {
-      return _intersectsAABB(other);
+      return _intersectsOBB(other);
     }
     return false;
   }
 
-  bool _intersectsAABB(AABBCollider aabb) {
-    final rect = aabb.getAABB();
-    final center = worldCenter;
+  bool _intersectsOBB(AABBCollider obb) {
+    final List<Offset> corners = obb.getWorldCorners();
+    final Offset c = worldCenter;
 
-    // Encontra o ponto mais próximo no retângulo
-    final closestX = center.dx.clamp(rect.left, rect.right);
-    final closestY = center.dy.clamp(rect.top, rect.bottom);
-    final closest = Offset(closestX, closestY);
+    // SAT contra eixos do OBB
+    final List<Offset> axes = <Offset>[
+      (corners[1] - corners[0]).normalized(),
+      (corners[3] - corners[0]).normalized(),
+    ];
 
-    // Verifica se a distância é menor que o raio
-    final distance = (center - closest).distance;
-    return distance < radius;
+    for (final axis in axes) {
+      final (double min, double max) = obb._projectOntoAxis(corners, axis);
+      final double centerProj = c.dx * axis.dx + c.dy * axis.dy;
+      // Projeção do círculo é [centerProj - r, centerProj + r]
+      final double overlap = obb._intervalOverlap(
+        min,
+        max,
+        centerProj - radius,
+        centerProj + radius,
+      );
+      if (overlap <= 0) return false;
+    }
+    // Também testa contra a direção para o vértice mais próximo (caso canto)
+    final Offset closest = _closestPointOnPolygon(c, corners);
+    return (c - closest).distance < radius;
+  }
+
+  Offset _closestPointOnSegment(Offset p, Offset a, Offset b) {
+    final Offset ab = b - a;
+    final double t =
+        ((p.dx - a.dx) * ab.dx + (p.dy - a.dy) * ab.dy) /
+        (ab.dx * ab.dx + ab.dy * ab.dy);
+    final double clampedT = t.clamp(0.0, 1.0);
+    return Offset(a.dx + ab.dx * clampedT, a.dy + ab.dy * clampedT);
+  }
+
+  Offset _closestPointOnPolygon(Offset p, List<Offset> poly) {
+    Offset closest = poly[0];
+    double minDist = (p - closest).distanceSquared;
+    for (int i = 0; i < poly.length; i++) {
+      final Offset a = poly[i];
+      final Offset b = poly[(i + 1) % poly.length];
+      final Offset q = _closestPointOnSegment(p, a, b);
+      final double d = (p - q).distanceSquared;
+      if (d < minDist) {
+        minDist = d;
+        closest = q;
+      }
+    }
+    return closest;
   }
 
   @override
@@ -334,7 +522,7 @@ class CircleCollider extends Collider {
     if (other is CircleCollider) {
       return _getCircleIntersection(other);
     } else if (other is AABBCollider) {
-      return _getAABBIntersection(other);
+      return _getOBBIntersection(other);
     }
     return null;
   }
@@ -360,25 +548,18 @@ class CircleCollider extends Collider {
     );
   }
 
-  CollisionInfo _getAABBIntersection(AABBCollider aabb) {
-    final rect = aabb.getAABB();
-    final center = worldCenter;
-
-    // Encontra o ponto mais próximo no retângulo
-    final closestX = center.dx.clamp(rect.left, rect.right);
-    final closestY = center.dy.clamp(rect.top, rect.bottom);
-    final closest = Offset(closestX, closestY);
-
-    final distance = (center - closest).distance;
-    final penetrationDepth = radius - distance;
-
-    // Normal aponta do ponto mais próximo para o centro do círculo
-    final normal = distance > 0
+  CollisionInfo _getOBBIntersection(AABBCollider obb) {
+    final List<Offset> corners = obb.getWorldCorners();
+    final Offset center = worldCenter;
+    final Offset closest = _closestPointOnPolygon(center, corners);
+    final double distance = (center - closest).distance;
+    final double penetrationDepth = radius - distance;
+    final Offset normal = distance > 0
         ? (center - closest) / distance
         : const Offset(0, -1);
 
     return CollisionInfo(
-      other: aabb,
+      other: obb,
       intersectionPoint: closest,
       normal: normal,
       penetrationDepth: penetrationDepth,
