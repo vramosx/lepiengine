@@ -288,6 +288,22 @@ class Scene {
     }
   }
 
+  /// Atualiza física recursivamente em toda a árvore de objetos,
+  /// garantindo que `GameObject`s aninhados que implementam `PhysicsBody`
+  /// também tenham `updatePhysics` chamado.
+  void _updatePhysicsRecursively(GameObject obj, double dt) {
+    if (obj.active && obj is PhysicsBody) {
+      obj.updatePhysics(dt);
+    }
+
+    // Percorre filhos em ordem de zIndex para manter previsibilidade
+    final children = obj.children.toList()
+      ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+    for (final child in children) {
+      _updatePhysicsRecursively(child, dt);
+    }
+  }
+
   // ---- Loop da cena ----
 
   /// Atualiza todos os objetos ativos na ordem de camadas/zIndex.
@@ -304,11 +320,9 @@ class Scene {
       }
     }
 
-    // Atualiza física de objetos com PhysicsBody
+    // Atualiza física (inclusive em objetos aninhados)
     for (final o in _iterObjectsInDrawOrder) {
-      if (o.active && o is PhysicsBody) {
-        o.updatePhysics(dt);
-      }
+      _updatePhysicsRecursively(o, dt);
     }
 
     // Atualiza o sistema de colisões (resolve automaticamente)

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Colors, debugPrint;
 import 'package:lepiengine/engine/core/collider.dart';
 import 'package:lepiengine/main.dart';
@@ -16,19 +17,64 @@ class ShipsBattle extends Scene {
   }
 
   Future<void> _loadScene() async {
-    final shipImage = await AssetLoader.loadImage('ships_battle/ships.png');
-    final ship = Ship(image: shipImage);
-    add(ship);
+    final player = Player();
+    add(player);
 
     // camera.follow(ship);
   }
 }
 
-class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
+class Player extends GameObject with KeyboardControllable, CollisionCallbacks {
+  Player({super.name = 'Player'}) : super() {
+    position = const Offset(0, 0);
+  }
+
+  Ship? ship;
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    loadPlayer();
+  }
+
+  Future<void> loadPlayer() async {
+    final shipImage = await AssetLoader.loadImage('ships_battle/ships.png');
+    ship = Ship(image: shipImage);
+    addChild(ship!);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _handleInput();
+  }
+
+  void _handleInput() {
+    if (InputManager.instance.isPressed('Arrow Left')) {
+      ship?.rotateLeft();
+    }
+    if (InputManager.instance.isPressed('Arrow Right')) {
+      ship?.rotateRight();
+    }
+
+    if (InputManager.instance.isPressed('Arrow Up')) {
+      ship?.forward();
+    }
+    if (InputManager.instance.isPressed('Arrow Down')) {
+      ship?.backward();
+    }
+
+    if (InputManager.instance.isPressed('Space')) {
+      ship?.shoot();
+    }
+  }
+}
+
+class Ship extends SpriteSheet with PhysicsBody {
   Ship({super.name = 'Ship', required super.image}) : super() {
     size = const Size(128, 128);
     anchor = const Offset(0.5, 0.5);
-    position = const Offset(100, 100);
+    position = const Offset(0, 0);
 
     enableGravity = false;
     maxVelocity = 50;
@@ -56,9 +102,9 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
     play('ship$selectedShip-life0');
   }
 
-  int selectedShip = 0;
+  int selectedShip = 1;
   double speed = 0.5;
-  double maxSpeed = 10;
+  double maxSpeed = 100;
   double reloadTime = 0.2;
   double reloadTimer = 0;
   int bulletCount = 0;
@@ -110,44 +156,35 @@ class Ship extends SpriteSheet with KeyboardControllable, PhysicsBody {
   @override
   void update(double dt) {
     super.update(dt);
-    _handleInput();
     reloadTimer = math.max(0, reloadTimer - dt);
   }
 
-  @override
-  void onKeyDown(Object key) {}
+  void rotateLeft() {
+    rotation -= 0.05;
+  }
 
-  void _handleInput() {
-    if (InputManager.instance.isPressed('Arrow Left')) {
-      rotation -= 0.05;
-    }
-    if (InputManager.instance.isPressed('Arrow Right')) {
-      rotation += 0.05;
-    }
+  void rotateRight() {
+    rotation += 0.05;
+  }
 
+  void forward() {
     final deg = localDegrees();
-    if (InputManager.instance.isPressed('Arrow Up')) {
-      // Calcula componentes da velocidade baseado no ângulo
-      final radians = deg * math.pi / 180;
-      final vx = speed * math.sin(radians); // Velocidade máxima * componente x
-      final vy =
-          -speed *
-          math.cos(
-            radians,
-          ); // Velocidade máxima * componente y (negativo pois y cresce para baixo)
-      addVelocity(Offset(vx, vy));
-    }
-    if (InputManager.instance.isPressed('Arrow Down')) {
-      // Movimento para trás (direção oposta)
-      final radians = deg * math.pi / 180;
-      final vx = -speed * math.sin(radians);
-      final vy = speed * math.cos(radians);
-      addVelocity(Offset(vx, vy));
-    }
+    final radians = deg * math.pi / 180;
+    final vx = speed * math.sin(radians); // Velocidade máxima * componente x
+    final vy =
+        -speed *
+        math.cos(
+          radians,
+        ); // Velocidade máxima * componente y (negativo pois y cresce para baixo)
+    addVelocity(Offset(vx, vy));
+  }
 
-    if (InputManager.instance.isPressed('Space')) {
-      shoot();
-    }
+  void backward() {
+    final deg = localDegrees();
+    final radians = deg * math.pi / 180;
+    final vx = -speed * math.sin(radians);
+    final vy = speed * math.cos(radians);
+    addVelocity(Offset(vx, vy));
   }
 }
 
@@ -169,15 +206,15 @@ class BulletPosition extends GameObject {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    canvas.hashCode;
-    // debug position - do not remove
-    // canvas.drawCircle(
-    //   Offset(size.width / 2, size.height / 2),
-    //   size.width,
-    //   Paint()
-    //     ..color = Colors.black.withAlpha(200)
-    //     ..style = PaintingStyle.fill,
-    // );
+    if (kDebugMode) {
+      canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2),
+        size.width,
+        Paint()
+          ..color = Colors.black.withAlpha(200)
+          ..style = PaintingStyle.fill,
+      );
+    }
   }
 }
 
