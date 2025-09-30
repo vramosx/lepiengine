@@ -1,13 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Colors;
 import 'package:lepiengine/engine/core/collider.dart';
 import 'package:lepiengine/main.dart';
 
 class ShipsBattle extends Scene {
-  ShipsBattle({super.name = 'ShipsBattle', super.debugCollisions = true})
+  ShipsBattle({super.name = 'ShipsBattle', super.debugCollisions = false})
     : super(clearColor: Colors.blueAccent);
 
   @override
@@ -17,12 +16,20 @@ class ShipsBattle extends Scene {
   }
 
   Future<void> _loadScene() async {
+    setLayerOrder('waterEffects', 1);
+    setLayerOrder('entities', 2);
+    setLayerOrder('effects', 3);
+
     final player = Player();
+    player.position = const Offset(300, 0);
     add(player);
+
+    final enemy = Enemy(player: player);
+    add(enemy);
   }
 }
 
-class Player extends GameObject with KeyboardControllable, CollisionCallbacks {
+class Player extends GameObject with KeyboardControllable {
   Player({super.name = 'Player'}) : super() {
     position = const Offset(0, 0);
   }
@@ -36,12 +43,11 @@ class Player extends GameObject with KeyboardControllable, CollisionCallbacks {
   }
 
   Future<void> loadPlayer() async {
-    SceneManager.instance.current?.setLayerOrder('waterEffects', 1);
-    SceneManager.instance.current?.setLayerOrder('entities', 2);
     final shipImage = await AssetLoader.loadImage('ships_battle/ships.png');
-    ship = Ship(image: shipImage);
+    ship = Ship(image: shipImage, selectedShip: 1, isPlayer: true);
     ship!.position = const Offset(0, 0);
     addChild(ship!);
+    SceneManager.instance.current?.camera.follow(ship!);
   }
 
   @override
@@ -71,22 +77,64 @@ class Player extends GameObject with KeyboardControllable, CollisionCallbacks {
   }
 }
 
-class Enemy extends GameObject with CollisionCallbacks {
-  Enemy({super.name = 'Enemy'}) : super() {
+class Enemy extends GameObject {
+  Enemy({super.name = 'Enemy', required this.player}) : super() {
     size = const Size(128, 128);
     anchor = const Offset(0.5, 0.5);
     position = const Offset(0, 0);
+  }
 
-    addAABBCollider(
-      size: Size(128, 128),
-      anchor: ColliderAnchor.bottomCenter,
-      debugColor: Colors.red,
+  Ship? ship;
+  Player? player;
+  int life = 4;
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    loadEnemy();
+  }
+
+  Future<void> createExplosionEffect(Bullet bullet) async {
+    final scene = SceneManager.instance.current!;
+    late SpriteSheet explosionEffect;
+    explosionEffect = await explosionEffectBuilder(() {
+      scene.remove(explosionEffect);
+    });
+    explosionEffect.rotation = bullet.rotation;
+    explosionEffect.position = bullet.position;
+    scene.add(explosionEffect, layer: 'effects');
+    scene.camera.lightShake();
+  }
+
+  Future<void> loadEnemy() async {
+    final shipImage = await AssetLoader.loadImage('ships_battle/ships.png');
+    ship = Ship(
+      image: shipImage,
+      selectedShip: 2,
+      onDamage: (bullet) {
+        life--;
+        ship!.life += 1;
+        ship!.play('ship${ship!.selectedShip}-life${ship!.life}');
+        createExplosionEffect(bullet);
+
+        if (life <= 0) {
+          SceneManager.instance.current?.remove(this);
+        }
+      },
     );
+    ship!.position = const Offset(0, 0);
+    addChild(ship!);
   }
 }
 
-class Ship extends SpriteSheet with PhysicsBody {
-  Ship({super.name = 'Ship', required super.image}) : super() {
+class Ship extends SpriteSheet with PhysicsBody, CollisionCallbacks {
+  Ship({
+    super.name = 'Ship',
+    required super.image,
+    required this.selectedShip,
+    this.isPlayer = false,
+    this.onDamage,
+  }) : super() {
     size = const Size(128, 128);
     anchor = const Offset(0.5, 0.5);
     position = const Offset(0, 0);
@@ -108,16 +156,46 @@ class Ship extends SpriteSheet with PhysicsBody {
     bulletPosition = BulletPosition(name: 'bulletPosition');
     attachObject(bulletPosition!, Offset(61, 10));
 
-    play('ship$selectedShip-life0');
+    play('ship$selectedShip-life$life');
 
     addAABBCollider(
-      size: Size(64, 115),
-      anchor: ColliderAnchor.center,
-      debugColor: Colors.red,
+      size: Size(20, 10),
+      anchor: ColliderAnchor.topCenter,
+      offset: Offset(0, 10),
+      debugColor: Colors.greenAccent,
+    );
+
+    addAABBCollider(
+      size: Size(40, 10),
+      anchor: ColliderAnchor.topCenter,
+      offset: Offset(0, 20),
+      debugColor: Colors.greenAccent,
+    );
+
+    addAABBCollider(
+      size: Size(60, 40),
+      anchor: ColliderAnchor.topCenter,
+      offset: Offset(0, 30),
+      debugColor: Colors.greenAccent,
+    );
+
+    addAABBCollider(
+      size: Size(30, 40),
+      anchor: ColliderAnchor.topCenter,
+      offset: Offset(0, 70),
+      debugColor: Colors.greenAccent,
+    );
+
+    addAABBCollider(
+      size: Size(20, 10),
+      anchor: ColliderAnchor.topCenter,
+      offset: Offset(0, 110),
+      debugColor: Colors.greenAccent,
     );
   }
 
   int selectedShip = 1;
+  int life = 0;
   double speed = 0.5;
   double maxSpeed = 100;
   double reloadTime = 0.2;
@@ -129,13 +207,15 @@ class Ship extends SpriteSheet with PhysicsBody {
   double waterEffectTimer = 0;
   double waterEffectInterval = 0.2;
   GameObject? bulletPosition;
+  bool isPlayer = false;
+  Function(Bullet)? onDamage;
 
   Future<void> shoot() async {
     if (bulletCount >= maxBulletCount || reloadTimer > 0) return;
     bulletCount++;
     reloadTimer = reloadTime;
     final bulletImage = await AssetLoader.loadImage('ships_battle/bullet.png');
-    Bullet bullet = Bullet(image: bulletImage);
+    Bullet bullet = Bullet(image: bulletImage, fromPlayer: isPlayer);
 
     final mountWorld = bulletPosition!.localToWorld(Offset(-5, -5));
 
@@ -165,9 +245,11 @@ class Ship extends SpriteSheet with PhysicsBody {
         scene.remove(bullet);
         bulletCount--;
 
-        bulletWaterEffect.position = bullet.position;
-        bulletWaterEffect.play('waterEffect');
-        scene.add(bulletWaterEffect, layer: 'waterEffects');
+        if (!bullet.destroyed) {
+          bulletWaterEffect.position = bullet.position;
+          bulletWaterEffect.play('waterEffect');
+          scene.add(bulletWaterEffect, layer: 'waterEffects');
+        }
       },
     );
   }
@@ -186,6 +268,17 @@ class Ship extends SpriteSheet with PhysicsBody {
     waterEffect.anchor = const Offset(0, 0);
     waterEffect.position = localToWorld(Offset(50, 100));
     scene.add(waterEffect, layer: 'waterEffects');
+  }
+
+  @override
+  void onCollisionEnter(GameObject other, CollisionInfo collision) {
+    super.onCollisionEnter(other, collision);
+    if (other is Bullet && other.fromPlayer != isPlayer) {
+      other.destroyed = true;
+      SceneManager.instance.current?.remove(other);
+      Animations.blink(this, Colors.red, 30, 0.1);
+      onDamage?.call(other);
+    }
   }
 
   @override
@@ -226,12 +319,22 @@ class Ship extends SpriteSheet with PhysicsBody {
 }
 
 class Bullet extends Sprite with PhysicsBody {
-  Bullet({super.name = 'Bullet', required super.image}) : super() {
+  Bullet({super.name = 'Bullet', required super.image, this.fromPlayer = false})
+    : super() {
     size = const Size(16, 16);
     anchor = const Offset(0, 0);
     enableGravity = false;
     maxVelocity = 5000;
+
+    addCircleCollider(
+      radius: 4,
+      debugColor: Colors.deepPurpleAccent,
+      isTrigger: true,
+    );
   }
+
+  bool fromPlayer = false;
+  bool destroyed = false;
 }
 
 class BulletPosition extends GameObject {
@@ -242,14 +345,15 @@ class BulletPosition extends GameObject {
 
   @override
   void render(Canvas canvas) {
+    final scene = SceneManager.instance.current!;
     super.render(canvas);
-    if (kDebugMode) {
+    if (scene.collisionManager.debugMode) {
       canvas.drawCircle(
         Offset(size.width / 2, size.height / 2),
         size.width,
         Paint()
           ..color = Colors.black.withAlpha(200)
-          ..style = PaintingStyle.fill,
+          ..style = PaintingStyle.stroke,
       );
     }
   }
@@ -303,4 +407,28 @@ Future<SpriteSheet> waterEffectBuilder(Function()? onEnd) =>
         ),
       ],
       initialAnimation: "waterEffect",
+    );
+
+Future<SpriteSheet> explosionEffectBuilder(Function()? onEnd) =>
+    SpriteSheetBuilder.build(
+      name: "explosionEffect",
+      imagePath: "ships_battle/effects.png",
+      size: Size(32, 32),
+      animations: [
+        SpriteAnimation(
+          name: "explosionEffect",
+          frameSize: Size(96, 96),
+          frames: [
+            Frame(col: 0, row: 0),
+            Frame(col: 1, row: 0),
+            Frame(col: 2, row: 0),
+          ],
+          frameDuration: 0.1,
+          loop: false,
+          onEnd: () {
+            onEnd?.call();
+          },
+        ),
+      ],
+      initialAnimation: "explosionEffect",
     );
