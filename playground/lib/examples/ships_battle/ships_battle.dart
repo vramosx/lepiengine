@@ -87,6 +87,8 @@ class Enemy extends GameObject {
   Ship? ship;
   Player? player;
   int life = 4;
+  double enemyReactionTimer = 0;
+  double enemyReactionInterval = 0.1;
 
   @override
   void onAdd() {
@@ -123,7 +125,24 @@ class Enemy extends GameObject {
       },
     );
     ship!.position = const Offset(0, 0);
+    ship!.speed = 5;
     addChild(ship!);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    enemyReactionTimer = math.max(0, enemyReactionTimer - dt);
+    if (enemyReactionTimer <= 0) {
+      enemyReaction();
+    }
+  }
+
+  void enemyReaction() {
+    enemyReactionTimer = enemyReactionInterval;
+    // Olha para o pivô do jogador (considera âncora e hierarquia)
+    ship?.rotateToObject(player!.ship!);
+    ship?.forward();
   }
 }
 
@@ -286,6 +305,7 @@ class Ship extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     super.update(dt);
     reloadTimer = math.max(0, reloadTimer - dt);
     waterEffectTimer = math.max(0, waterEffectTimer - dt);
+    addVelocity(Offset(-0.1, -0.1));
   }
 
   void rotateLeft() {

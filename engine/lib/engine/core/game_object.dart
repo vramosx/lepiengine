@@ -255,6 +255,47 @@ class GameObject {
     return deg;
   }
 
+  /// Retorna o ponto do pivô (anchor) no espaço local.
+  Offset get localPivot {
+    if (size == Size.zero) return Offset.zero;
+    return Offset(size.width * anchor.dx, size.height * anchor.dy);
+  }
+
+  /// Retorna o ponto do pivô (anchor) no espaço do mundo.
+  Offset get worldPivot => localToWorld(localPivot);
+
+  /// Rotaciona este objeto para "olhar" para um ponto no espaço do mundo.
+  ///
+  /// - Considera o pivô (`anchor`) como ponto de referência.
+  /// - Funciona corretamente com hierarquia: calcula direção no espaço do pai.
+  /// - A orientação "frente" considerada é o eixo +X do espaço local.
+  void rotateTo(Offset worldPosition) {
+    // Converte o alvo para o espaço local do pai (ou mantém em world caso sem pai)
+    final Offset targetInParent = _parent != null
+        ? _parent!.worldToLocal(worldPosition)
+        : worldPosition;
+
+    // Ponto de origem da direção: o pivô no espaço do pai
+    final Offset pivotInParent = size == Size.zero
+        ? position
+        : position + Offset(size.width * anchor.dx, size.height * anchor.dy);
+
+    final Offset dir = targetInParent - pivotInParent;
+    final double len2 = dir.dx * dir.dx + dir.dy * dir.dy;
+    if (len2 < 1e-12) return; // sem direção definida
+
+    // Define rotação local considerando que a "frente" é o eixo +Y para cima
+    // (como usado pelos navios/balas: dir = (sin(theta), -cos(theta)))
+    // Portanto, resolvemos para theta tal que:
+    //   sin(theta) = dir.x  e  -cos(theta) = dir.y  =>  theta = atan2(dir.x, -dir.y)
+    rotation = math.atan2(dir.dx, -dir.dy);
+  }
+
+  /// Facilita olhar para outro objeto (usa o pivô do alvo em world space).
+  void rotateToObject(GameObject target) {
+    rotateTo(target.worldPivot);
+  }
+
   /// Hit test básico no espaço local (retângulo do size).
   bool hitTest(Offset worldPoint) {
     if (size == Size.zero) return false;
