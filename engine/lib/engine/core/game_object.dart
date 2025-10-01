@@ -296,6 +296,18 @@ class GameObject {
     rotateTo(target.worldPivot);
   }
 
+  /// Retorna a distância (em world space) entre este objeto e `other`.
+  ///
+  /// A medição utiliza o pivô (`anchor`) de cada objeto como referência
+  /// (isto é, `worldPivot`).
+  double distanceTo(GameObject other) {
+    final Offset a = worldPivot;
+    final Offset b = other.worldPivot;
+    final double dx = a.dx - b.dx;
+    final double dy = a.dy - b.dy;
+    return math.sqrt(dx * dx + dy * dy);
+  }
+
   /// Hit test básico no espaço local (retângulo do size).
   bool hitTest(Offset worldPoint) {
     if (size == Size.zero) return false;

@@ -21,10 +21,11 @@ class ShipsBattle extends Scene {
     setLayerOrder('effects', 3);
 
     final player = Player();
-    player.position = const Offset(300, 0);
+    player.position = const Offset(800, 0);
     add(player);
 
     final enemy = Enemy(player: player);
+    enemy.position = const Offset(0, 0);
     add(enemy);
   }
 }
@@ -88,7 +89,10 @@ class Enemy extends GameObject {
   Player? player;
   int life = 4;
   double enemyReactionTimer = 0;
-  double enemyReactionInterval = 0.1;
+  double enemyReactionInterval = 1;
+  int bulletCount = 0;
+  int maxBulletCount = 1;
+  bool attacking = false;
 
   @override
   void onAdd() {
@@ -125,7 +129,7 @@ class Enemy extends GameObject {
       },
     );
     ship!.position = const Offset(0, 0);
-    ship!.speed = 5;
+    ship!.speed = 25;
     addChild(ship!);
   }
 
@@ -140,9 +144,27 @@ class Enemy extends GameObject {
 
   void enemyReaction() {
     enemyReactionTimer = enemyReactionInterval;
-    // Olha para o pivô do jogador (considera âncora e hierarquia)
     ship?.rotateToObject(player!.ship!);
-    ship?.forward();
+    final distance = ship?.distanceTo(player!.ship!) ?? 0;
+    if (distance > 400 && !attacking) {
+      Future.delayed(Duration(milliseconds: 1000), () {
+        ship?.forward();
+      });
+    } else {
+      attacking = true;
+      Future.delayed(Duration(milliseconds: 8000), () {
+        if (bulletCount < maxBulletCount) {
+          ship?.shoot(
+            onComplete: () {
+              bulletCount--;
+            },
+          );
+          bulletCount++;
+        }
+        attacking = false;
+      });
+    }
+    // ship?.forward();
   }
 }
 
@@ -225,11 +247,12 @@ class Ship extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   int maxWaterEffectCount = 12;
   double waterEffectTimer = 0;
   double waterEffectInterval = 0.2;
+  double deacceleration = 5;
   GameObject? bulletPosition;
   bool isPlayer = false;
   Function(Bullet)? onDamage;
 
-  Future<void> shoot() async {
+  Future<void> shoot({Function()? onComplete}) async {
     if (bulletCount >= maxBulletCount || reloadTimer > 0) return;
     bulletCount++;
     reloadTimer = reloadTime;
@@ -269,6 +292,8 @@ class Ship extends SpriteSheet with PhysicsBody, CollisionCallbacks {
           bulletWaterEffect.play('waterEffect');
           scene.add(bulletWaterEffect, layer: 'waterEffects');
         }
+
+        onComplete?.call();
       },
     );
   }
@@ -305,7 +330,18 @@ class Ship extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     super.update(dt);
     reloadTimer = math.max(0, reloadTimer - dt);
     waterEffectTimer = math.max(0, waterEffectTimer - dt);
-    addVelocity(Offset(-0.1, -0.1));
+    // Desacelera suavemente até parar completamente
+    final v = velocity;
+    if (v.dx != 0 || v.dy != 0) {
+      final currentSpeed = v.distance;
+      final decelAmount = deacceleration * dt;
+      if (currentSpeed <= decelAmount) {
+        setVelocity(Offset.zero);
+      } else {
+        final dir = v / currentSpeed; // normalizado
+        setVelocity(dir * (currentSpeed - decelAmount));
+      }
+    }
   }
 
   void rotateLeft() {
