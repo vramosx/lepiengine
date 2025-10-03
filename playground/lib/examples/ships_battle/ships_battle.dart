@@ -45,7 +45,14 @@ class Player extends GameObject with KeyboardControllable {
 
   Future<void> loadPlayer() async {
     final shipImage = await AssetLoader.loadImage('ships_battle/ships.png');
-    ship = Ship(image: shipImage, selectedShip: 1, isPlayer: true);
+    ship = Ship(
+      image: shipImage,
+      selectedShip: 1,
+      isPlayer: true,
+      onDamage: (bullet) {
+        SceneManager.instance.current?.camera.lightShake();
+      },
+    );
     ship!.position = const Offset(0, 0);
     addChild(ship!);
     SceneManager.instance.current?.camera.follow(ship!);
