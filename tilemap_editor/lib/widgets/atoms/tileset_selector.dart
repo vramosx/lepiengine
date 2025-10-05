@@ -10,6 +10,11 @@ class TilesetSelector extends StatefulWidget {
   final void Function(int x, int y)? onTileSelected;
   final int? selectedX;
   final int? selectedY;
+  final void Function(int sx, int sy, int ex, int ey)? onRangeSelected;
+  final int? selectedStartX;
+  final int? selectedStartY;
+  final int? selectedEndX;
+  final int? selectedEndY;
 
   /// Tamanho opcional de exibição. Se não informado, usa o tamanho da imagem.
   final double? displayWidth;
@@ -27,6 +32,11 @@ class TilesetSelector extends StatefulWidget {
     this.displayHeight,
     this.selectedX,
     this.selectedY,
+    this.onRangeSelected,
+    this.selectedStartX,
+    this.selectedStartY,
+    this.selectedEndX,
+    this.selectedEndY,
   });
 
   @override
@@ -36,6 +46,8 @@ class TilesetSelector extends StatefulWidget {
 class _TilesetSelectorState extends State<TilesetSelector> {
   Size? _intrinsicImageLogicalSize;
   Offset? _hoverPosition;
+  Offset? _dragStartLocal;
+  Offset? _dragCurrentLocal;
 
   ImageStream? _imageStream;
   ImageStreamListener? _imageStreamListener;
@@ -132,6 +144,23 @@ class _TilesetSelectorState extends State<TilesetSelector> {
     widget.onTileSelected?.call(tileX, tileY);
   }
 
+  List<int>? _localPosToTileXY(Offset localPos, Size displaySize) {
+    if (_intrinsicImageLogicalSize == null) return null;
+    final Size intrinsic = _intrinsicImageLogicalSize!;
+    final double scaleX = displaySize.width / intrinsic.width;
+    final double scaleY = displaySize.height / intrinsic.height;
+    final double displayedTileWidth = widget.tileWidth * scaleX;
+    final double displayedTileHeight = widget.tileHeight * scaleY;
+    final int cols = (intrinsic.width / widget.tileWidth).floor();
+    final int rows = (intrinsic.height / widget.tileHeight).floor();
+    if (cols == 0 || rows == 0) return null;
+    int tileX = (localPos.dx / displayedTileWidth).floor();
+    int tileY = (localPos.dy / displayedTileHeight).floor();
+    tileX = tileX.clamp(0, cols - 1).toInt();
+    tileY = tileY.clamp(0, rows - 1).toInt();
+    return [tileX, tileY];
+  }
+
   @override
   Widget build(BuildContext context) {
     final Size? intrinsic = _intrinsicImageLogicalSize;
@@ -150,6 +179,30 @@ class _TilesetSelectorState extends State<TilesetSelector> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: (details) => _onTapDown(details, displaySize),
+        onPanStart: (details) {
+          setState(() {
+            _dragStartLocal = details.localPosition;
+            _dragCurrentLocal = details.localPosition;
+          });
+        },
+        onPanUpdate: (details) {
+          setState(() {
+            _dragCurrentLocal = details.localPosition;
+          });
+        },
+        onPanEnd: (details) {
+          if (_dragStartLocal != null && _dragCurrentLocal != null) {
+            final a = _localPosToTileXY(_dragStartLocal!, displaySize);
+            final b = _localPosToTileXY(_dragCurrentLocal!, displaySize);
+            if (a != null && b != null) {
+              widget.onRangeSelected?.call(a[0], a[1], b[0], b[1]);
+            }
+          }
+          setState(() {
+            _dragStartLocal = null;
+            _dragCurrentLocal = null;
+          });
+        },
         child: SizedBox(
           width: width,
           height: height,
@@ -175,6 +228,10 @@ class _TilesetSelectorState extends State<TilesetSelector> {
                   hoverPosition: _hoverPosition,
                   selectedX: widget.selectedX,
                   selectedY: widget.selectedY,
+                  selectedStartX: widget.selectedStartX,
+                  selectedStartY: widget.selectedStartY,
+                  selectedEndX: widget.selectedEndX,
+                  selectedEndY: widget.selectedEndY,
                 ),
               ),
             ],
@@ -195,6 +252,10 @@ class _TilesetGridPainter extends CustomPainter {
   final Offset? hoverPosition;
   final int? selectedX;
   final int? selectedY;
+  final int? selectedStartX;
+  final int? selectedStartY;
+  final int? selectedEndX;
+  final int? selectedEndY;
 
   _TilesetGridPainter({
     required this.intrinsicSize,
@@ -206,6 +267,10 @@ class _TilesetGridPainter extends CustomPainter {
     required this.hoverPosition,
     required this.selectedX,
     required this.selectedY,
+    required this.selectedStartX,
+    required this.selectedStartY,
+    required this.selectedEndX,
+    required this.selectedEndY,
   });
 
   @override
@@ -287,6 +352,48 @@ class _TilesetGridPainter extends CustomPainter {
         ..strokeWidth = 2;
       canvas.drawRect(rect, borderPaint);
     }
+
+    // Selected range persistent highlight
+    if (selectedStartX != null &&
+        selectedStartY != null &&
+        selectedEndX != null &&
+        selectedEndY != null) {
+      int sx = selectedStartX!;
+      int sy = selectedStartY!;
+      int ex = selectedEndX!;
+      int ey = selectedEndY!;
+      if (sx > ex) {
+        final t = sx;
+        sx = ex;
+        ex = t;
+      }
+      if (sy > ey) {
+        final t = sy;
+        sy = ey;
+        ey = t;
+      }
+      sx = sx.clamp(0, cols - 1);
+      sy = sy.clamp(0, rows - 1);
+      ex = ex.clamp(0, cols - 1);
+      ey = ey.clamp(0, rows - 1);
+
+      final Rect rect = Rect.fromLTWH(
+        sx * displayedTileWidth,
+        sy * displayedTileHeight,
+        (ex - sx + 1) * displayedTileWidth,
+        (ey - sy + 1) * displayedTileHeight,
+      );
+
+      final Paint borderPaint = Paint()
+        ..color = highlightColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      final Paint fillPaint = Paint()
+        ..color = highlightColor.withAlpha(60)
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(rect, fillPaint);
+      canvas.drawRect(rect, borderPaint);
+    }
   }
 
   @override
@@ -299,6 +406,10 @@ class _TilesetGridPainter extends CustomPainter {
         gridColor != oldDelegate.gridColor ||
         highlightColor != oldDelegate.highlightColor ||
         selectedX != oldDelegate.selectedX ||
-        selectedY != oldDelegate.selectedY;
+        selectedY != oldDelegate.selectedY ||
+        selectedStartX != oldDelegate.selectedStartX ||
+        selectedStartY != oldDelegate.selectedStartY ||
+        selectedEndX != oldDelegate.selectedEndX ||
+        selectedEndY != oldDelegate.selectedEndY;
   }
 }

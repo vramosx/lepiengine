@@ -143,8 +143,6 @@ class _MapEditorPainter extends CustomPainter {
   }) : super(repaint: controller);
 
   void _drawTiles(Canvas canvas, Size size, EditorController controller) {
-    final tileset = controller.tilesetImage;
-    if (tileset == null) return;
     final double srcW = controller.tilePixelWidth;
     final double srcH = controller.tilePixelHeight;
     final paint = Paint();
@@ -154,6 +152,9 @@ class _MapEditorPainter extends CustomPainter {
       layerIndex++
     ) {
       final layer = controller.layers[layerIndex];
+      final tilesetDef = controller.getTilesetById(layer.tilesetId);
+      if (tilesetDef == null) continue;
+      final tileset = tilesetDef.image;
       for (int y = 0; y < controller.tilesY; y++) {
         for (int x = 0; x < controller.tilesX; x++) {
           final ref = layer.tiles[y][x];

@@ -21,6 +21,22 @@ class _TilesetMenuState extends State<TilesetMenu> {
   ImageProvider? _tilesetImage;
   double _tileWidth = 32;
   double _tileHeight = 32;
+  String? selectedTileset;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scope = EditorScope.of(context);
+    final provider = scope.selectedLayerTilesetProvider;
+    final id = scope.selectedLayer?.tilesetId;
+    setState(() {
+      _tilesetImage = provider;
+      selectedTileset = id;
+      showTilemap = provider != null;
+      _tileWidth = scope.tilePixelWidth;
+      _tileHeight = scope.tilePixelHeight;
+    });
+  }
 
   Future<void> _loadTileset() async {
     final result = await FilePicker.platform.pickFiles(
@@ -93,18 +109,21 @@ class _TilesetMenuState extends State<TilesetMenu> {
                         .clamp(1.0, uiImage.height.toDouble())
                         .toDouble();
 
-                    setState(() {
-                      _tilesetImage = MemoryImage(bytes);
-                      showTilemap = true;
-                      _tileWidth = tileW;
-                      _tileHeight = tileH;
-                    });
-
-                    scope.setTileset(
+                    final id = scope.addTileset(
+                      name: result.files.single.name,
                       image: uiImage,
+                      provider: MemoryImage(bytes),
                       tileWidth: tileW,
                       tileHeight: tileH,
                     );
+                    scope.setLayerTileset(id);
+                    setState(() {
+                      _tilesetImage = scope.selectedLayerTilesetProvider;
+                      showTilemap = true;
+                      _tileWidth = tileW;
+                      _tileHeight = tileH;
+                      selectedTileset = id;
+                    });
 
                     Navigator.of(context).pop(values);
                   },
@@ -121,6 +140,90 @@ class _TilesetMenuState extends State<TilesetMenu> {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     return frame.image;
+  }
+
+  Widget buildTilesetSelection() {
+    return SizedBox(
+      width: double.infinity,
+      child: Select<String>(
+        filled: true,
+        itemBuilder: (context, item) {
+          final tileset = EditorScope.of(
+            context,
+          ).tilesets.firstWhere((t) => t.id == item);
+          return Text(tileset.name);
+        },
+        popupConstraints: const BoxConstraints(maxHeight: 300, maxWidth: 200),
+        onChanged: (value) {
+          if (value == null) return;
+          final scope = EditorScope.of(context);
+          scope.setLayerTileset(value);
+          setState(() {
+            selectedTileset = value;
+            _tilesetImage = scope.selectedLayerTilesetProvider;
+          });
+        },
+        value:
+            selectedTileset ?? EditorScope.of(context).selectedLayer?.tilesetId,
+        placeholder: const Text('Select a tileset'),
+        popup: SelectPopup(
+          items: SelectItemList(
+            children: [
+              for (final t in EditorScope.of(context).tilesets)
+                SelectItemButton(
+                  value: t.id,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(t.name),
+                      IconButton(
+                        onPressed: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: const Text('Delete tileset?'),
+                                content: const Text(
+                                  'This action cannot be undone.',
+                                ),
+                                actions: [
+                                  OutlineButton(
+                                    child: const Text('Cancel'),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                  ),
+                                  DestructiveButton(
+                                    child: const Text('Delete'),
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          if (confirmed == true) {
+                            final scope = EditorScope.of(context);
+                            scope.removeTileset(t.id);
+                            final newSel = scope.selectedLayer?.tilesetId;
+                            setState(() {
+                              selectedTileset = newSel;
+                              _tilesetImage =
+                                  scope.selectedLayerTilesetProvider;
+                              showTilemap = newSel != null;
+                            });
+                          }
+                        },
+                        icon: Icon(LucideIcons.trash, size: 14),
+                        variance: ButtonStyle.destructive(),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ).call,
+      ),
+    );
   }
 
   @override
@@ -144,6 +247,7 @@ class _TilesetMenuState extends State<TilesetMenu> {
             ),
           ),
         ),
+        buildTilesetSelection(),
         Expanded(
           child: Container(
             decoration: BoxDecoration(
@@ -166,8 +270,25 @@ class _TilesetMenuState extends State<TilesetMenu> {
                         highlightColor: Theme.of(context).colorScheme.primary,
                         selectedX: EditorScope.of(context).selectedTileX,
                         selectedY: EditorScope.of(context).selectedTileY,
+                        selectedStartX: EditorScope.of(
+                          context,
+                        ).selectedLayerSelection?.startX,
+                        selectedStartY: EditorScope.of(
+                          context,
+                        ).selectedLayerSelection?.startY,
+                        selectedEndX: EditorScope.of(
+                          context,
+                        ).selectedLayerSelection?.endX,
+                        selectedEndY: EditorScope.of(
+                          context,
+                        ).selectedLayerSelection?.endY,
                         onTileSelected: (x, y) {
                           EditorScope.of(context).selectTile(x, y);
+                        },
+                        onRangeSelected: (sx, sy, ex, ey) {
+                          EditorScope.of(
+                            context,
+                          ).setSelectionRange(sx, sy, ex, ey);
                         },
                       ),
                     ),
