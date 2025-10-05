@@ -113,38 +113,13 @@ class _TilesetSelectorState extends State<TilesetSelector> {
   }
 
   void _onTapDown(TapDownDetails details, Size displaySize) {
-    if (_intrinsicImageLogicalSize == null) return;
-
-    final Size intrinsic = _intrinsicImageLogicalSize!;
-
-    final double scaleX = displaySize.width / intrinsic.width;
-    final double scaleY = displaySize.height / intrinsic.height;
-
-    final double displayedTileWidth = widget.tileWidth * scaleX;
-    final double displayedTileHeight = widget.tileHeight * scaleY;
-
-    final int cols = (intrinsic.width / widget.tileWidth).floor().clamp(
-      0,
-      1000000,
-    );
-    final int rows = (intrinsic.height / widget.tileHeight).floor().clamp(
-      0,
-      1000000,
-    );
-
-    if (cols == 0 || rows == 0) return;
-
-    final Offset p = details.localPosition;
-    int tileX = (p.dx / displayedTileWidth).floor();
-    int tileY = (p.dy / displayedTileHeight).floor();
-
-    tileX = tileX.clamp(0, cols - 1).toInt();
-    tileY = tileY.clamp(0, rows - 1).toInt();
-
-    widget.onTileSelected?.call(tileX, tileY);
+    final pos = _tileFromLocal(details.localPosition, displaySize);
+    if (pos != null) {
+      widget.onTileSelected?.call(pos.x, pos.y);
+    }
   }
 
-  List<int>? _localPosToTileXY(Offset localPos, Size displaySize) {
+  ({int x, int y})? _tileFromLocal(Offset localPos, Size displaySize) {
     if (_intrinsicImageLogicalSize == null) return null;
     final Size intrinsic = _intrinsicImageLogicalSize!;
     final double scaleX = displaySize.width / intrinsic.width;
@@ -158,7 +133,7 @@ class _TilesetSelectorState extends State<TilesetSelector> {
     int tileY = (localPos.dy / displayedTileHeight).floor();
     tileX = tileX.clamp(0, cols - 1).toInt();
     tileY = tileY.clamp(0, rows - 1).toInt();
-    return [tileX, tileY];
+    return (x: tileX, y: tileY);
   }
 
   @override
@@ -192,10 +167,10 @@ class _TilesetSelectorState extends State<TilesetSelector> {
         },
         onPanEnd: (details) {
           if (_dragStartLocal != null && _dragCurrentLocal != null) {
-            final a = _localPosToTileXY(_dragStartLocal!, displaySize);
-            final b = _localPosToTileXY(_dragCurrentLocal!, displaySize);
+            final a = _tileFromLocal(_dragStartLocal!, displaySize);
+            final b = _tileFromLocal(_dragCurrentLocal!, displaySize);
             if (a != null && b != null) {
-              widget.onRangeSelected?.call(a[0], a[1], b[0], b[1]);
+              widget.onRangeSelected?.call(a.x, a.y, b.x, b.y);
             }
           }
           setState(() {

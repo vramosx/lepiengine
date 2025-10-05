@@ -3,71 +3,7 @@ import 'package:flutter/widgets.dart' show ImageProvider;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-
-class TileRef {
-  final int tileX;
-  final int tileY;
-
-  const TileRef({required this.tileX, required this.tileY});
-}
-
-class TileSelection {
-  final int startX;
-  final int startY;
-  final int endX;
-  final int endY;
-
-  const TileSelection({
-    required this.startX,
-    required this.startY,
-    required this.endX,
-    required this.endY,
-  });
-
-  int get width => (endX - startX).abs() + 1;
-  int get height => (endY - startY).abs() + 1;
-
-  TileSelection normalized() {
-    final int nx = startX <= endX ? startX : endX;
-    final int ny = startY <= endY ? startY : endY;
-    final int ex = startX <= endX ? endX : startX;
-    final int ey = startY <= endY ? endY : startY;
-    return TileSelection(startX: nx, startY: ny, endX: ex, endY: ey);
-  }
-}
-
-class TilesetDef {
-  final String id;
-  final String name;
-  final ui.Image image;
-  final ImageProvider provider;
-
-  const TilesetDef({
-    required this.id,
-    required this.name,
-    required this.image,
-    required this.provider,
-  });
-}
-
-class LayerData {
-  final String name;
-  final List<List<TileRef?>> tiles; // [y][x]
-  String? tilesetId; // referência ao tileset selecionado
-  TileSelection? selection; // seleção de tiles no tileset
-
-  LayerData({
-    required this.name,
-    required int width,
-    required int height,
-    this.tilesetId,
-    this.selection,
-  }) : tiles = List.generate(
-         height,
-         (_) => List<TileRef?>.filled(width, null, growable: false),
-         growable: false,
-       );
-}
+import 'package:lepiengine_tilemap_editor/models/index.dart';
 
 class EditorController extends ChangeNotifier {
   // Grid/display configuration
@@ -123,6 +59,10 @@ class EditorController extends ChangeNotifier {
   ui.Image? get selectedLayerTilesetImage =>
       getTilesetById(selectedLayer?.tilesetId)?.image;
   TileSelection? get selectedLayerSelection => selectedLayer?.selection;
+
+  bool get hasSelectionOnSelectedLayer => selectedLayer?.selection != null;
+  bool get hasTilesetOnSelectedLayer =>
+      getTilesetById(selectedLayer?.tilesetId) != null;
 
   void selectLayer(int index) {
     if (index < 0 || index >= _layers.length) return;

@@ -104,19 +104,21 @@ class _MapEditorState extends State<MapEditor> {
             _lastTileY = null;
           });
         },
-        child: CustomPaint(
-          size: Size(
-            widget.tilesX * widget.tileSize,
-            widget.tilesY * widget.tileSize,
-          ),
-          painter: _MapEditorPainter(
-            tilesX: widget.tilesX,
-            tilesY: widget.tilesY,
-            tileSize: widget.tileSize,
-            gridColor: widget.gridColor,
-            highlightColor: widget.highlightColor,
-            hoverPosition: _hoverPosition,
-            controller: controller,
+        child: RepaintBoundary(
+          child: CustomPaint(
+            size: Size(
+              widget.tilesX * widget.tileSize,
+              widget.tilesY * widget.tileSize,
+            ),
+            painter: _MapEditorPainter(
+              tilesX: widget.tilesX,
+              tilesY: widget.tilesY,
+              tileSize: widget.tileSize,
+              gridColor: widget.gridColor,
+              highlightColor: widget.highlightColor,
+              hoverPosition: _hoverPosition,
+              controller: controller,
+            ),
           ),
         ),
       ),
@@ -132,6 +134,7 @@ class _MapEditorPainter extends CustomPainter {
   final Color highlightColor;
   final Offset? hoverPosition;
   final EditorController controller;
+  final Path _gridPath;
   _MapEditorPainter({
     required this.tilesX,
     required this.tilesY,
@@ -140,7 +143,23 @@ class _MapEditorPainter extends CustomPainter {
     required this.highlightColor,
     required this.hoverPosition,
     required this.controller,
-  }) : super(repaint: controller);
+  }) : _gridPath = _buildGridPath(tilesX, tilesY, tileSize),
+       super(repaint: controller);
+
+  static Path _buildGridPath(int tilesX, int tilesY, double tileSize) {
+    final Path path = Path();
+    for (int x = 0; x <= tilesX; x++) {
+      final double dx = x * tileSize;
+      path.moveTo(dx, 0);
+      path.lineTo(dx, tilesY * tileSize);
+    }
+    for (int y = 0; y <= tilesY; y++) {
+      final double dy = y * tileSize;
+      path.moveTo(0, dy);
+      path.lineTo(tilesX * tileSize, dy);
+    }
+    return path;
+  }
 
   void _drawTiles(Canvas canvas, Size size, EditorController controller) {
     final double srcW = controller.tilePixelWidth;
@@ -185,15 +204,7 @@ class _MapEditorPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Desenha o grid
-    for (int x = 0; x <= tilesX; x++) {
-      final dx = x * tileSize;
-      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
-    }
-
-    for (int y = 0; y <= tilesY; y++) {
-      final dy = y * tileSize;
-      canvas.drawLine(Offset(0, dy), Offset(size.width, dy), paint);
-    }
+    canvas.drawPath(_gridPath, paint);
 
     // Destaque do tile sob o mouse
     if (hoverPosition != null) {
