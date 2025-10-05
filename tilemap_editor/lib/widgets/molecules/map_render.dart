@@ -2,6 +2,8 @@ import 'package:defer_pointer/defer_pointer.dart';
 import 'package:flutter/material.dart';
 import 'package:lepiengine_tilemap_editor/widgets/atoms/canvas_control.dart';
 import 'package:lepiengine_tilemap_editor/widgets/atoms/map_editor.dart';
+import 'package:lepiengine_tilemap_editor/controllers/editor_controller.dart';
+import 'package:flutter/services.dart';
 
 class MapRender extends StatefulWidget {
   const MapRender({super.key, required this.width, required this.height});
@@ -69,8 +71,24 @@ class _MapRenderState extends State<MapRender> {
                   zoom = newScale;
                 });
               },
+              // onDrag: (newPosition) {
+              //   if (!canDrag) return;
+              //   setState(() {
+              //     left = newPosition.dx;
+              //     top = newPosition.dy;
+              //   });
+              // },
               onDrag: (newPosition) {
+                final keys = HardwareKeyboard.instance.logicalKeysPressed;
+                final allowPan =
+                    keys.contains(LogicalKeyboardKey.metaLeft) ||
+                    keys.contains(LogicalKeyboardKey.metaRight) ||
+                    keys.contains(LogicalKeyboardKey.controlLeft) ||
+                    keys.contains(LogicalKeyboardKey.controlRight);
+
+                if (!allowPan) return;
                 if (!canDrag) return;
+
                 setState(() {
                   left = newPosition.dx;
                   top = newPosition.dy;
@@ -88,9 +106,9 @@ class _MapRenderState extends State<MapRender> {
                       width: widget.width.toDouble(),
                       height: widget.height + sceneTextSize,
                       child: MapEditor(
-                        tilesX: 32,
-                        tilesY: 32,
-                        tileSize: 32,
+                        tilesX: EditorScope.of(context).tilesX,
+                        tilesY: EditorScope.of(context).tilesY,
+                        tileSize: EditorScope.of(context).tileSize,
                         gridColor: Theme.of(context).colorScheme.secondary,
                         highlightColor: Theme.of(context).colorScheme.primary,
                       ),

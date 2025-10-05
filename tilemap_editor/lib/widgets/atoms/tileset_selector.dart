@@ -8,6 +8,8 @@ class TilesetSelector extends StatefulWidget {
   final Color gridColor;
   final Color highlightColor;
   final void Function(int x, int y)? onTileSelected;
+  final int? selectedX;
+  final int? selectedY;
 
   /// Tamanho opcional de exibição. Se não informado, usa o tamanho da imagem.
   final double? displayWidth;
@@ -23,6 +25,8 @@ class TilesetSelector extends StatefulWidget {
     this.onTileSelected,
     this.displayWidth,
     this.displayHeight,
+    this.selectedX,
+    this.selectedY,
   });
 
   @override
@@ -169,6 +173,8 @@ class _TilesetSelectorState extends State<TilesetSelector> {
                   gridColor: widget.gridColor,
                   highlightColor: widget.highlightColor,
                   hoverPosition: _hoverPosition,
+                  selectedX: widget.selectedX,
+                  selectedY: widget.selectedY,
                 ),
               ),
             ],
@@ -187,6 +193,8 @@ class _TilesetGridPainter extends CustomPainter {
   final Color gridColor;
   final Color highlightColor;
   final Offset? hoverPosition;
+  final int? selectedX;
+  final int? selectedY;
 
   _TilesetGridPainter({
     required this.intrinsicSize,
@@ -196,6 +204,8 @@ class _TilesetGridPainter extends CustomPainter {
     required this.gridColor,
     required this.highlightColor,
     required this.hoverPosition,
+    required this.selectedX,
+    required this.selectedY,
   });
 
   @override
@@ -259,6 +269,24 @@ class _TilesetGridPainter extends CustomPainter {
         ..style = PaintingStyle.fill;
       canvas.drawRect(rect, highlightPaint);
     }
+
+    // Selected tile persistent highlight
+    if (selectedX != null && selectedY != null && cols > 0 && rows > 0) {
+      final int sx = selectedX!.clamp(0, cols - 1);
+      final int sy = selectedY!.clamp(0, rows - 1);
+      final Rect rect = Rect.fromLTWH(
+        sx * displayedTileWidth,
+        sy * displayedTileHeight,
+        displayedTileWidth,
+        displayedTileHeight,
+      );
+
+      final Paint borderPaint = Paint()
+        ..color = highlightColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      canvas.drawRect(rect, borderPaint);
+    }
   }
 
   @override
@@ -269,6 +297,8 @@ class _TilesetGridPainter extends CustomPainter {
         tileWidth != oldDelegate.tileWidth ||
         tileHeight != oldDelegate.tileHeight ||
         gridColor != oldDelegate.gridColor ||
-        highlightColor != oldDelegate.highlightColor;
+        highlightColor != oldDelegate.highlightColor ||
+        selectedX != oldDelegate.selectedX ||
+        selectedY != oldDelegate.selectedY;
   }
 }

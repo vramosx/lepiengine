@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:lepiengine_tilemap_editor/widgets/atoms/tileset_selector.dart';
 import 'package:lepiengine_tilemap_editor/widgets/molecules/menu_header.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:lepiengine_tilemap_editor/controllers/editor_controller.dart';
 
 class TilesetMenu extends StatefulWidget {
   const TilesetMenu({super.key});
@@ -30,7 +31,7 @@ class _TilesetMenuState extends State<TilesetMenu> {
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final bytes = await file.readAsBytes();
-      await _loadImageFromBytes(bytes);
+      final uiImage = await _loadImageFromBytes(bytes);
 
       if (mounted) {
         showDialog(
@@ -74,15 +75,38 @@ class _TilesetMenuState extends State<TilesetMenu> {
                 PrimaryButton(
                   child: const Text('Set'),
                   onPressed: () {
+                    final scope = EditorScope.of(context);
+                    final values = controller.values;
+
+                    final dynamic widthRaw = values[const FormKey(#width)];
+                    final dynamic heightRaw = values[const FormKey(#height)];
+
+                    final double parsedWidth =
+                        double.tryParse(widthRaw?.toString() ?? '') ?? 32;
+                    final double parsedHeight =
+                        double.tryParse(heightRaw?.toString() ?? '') ?? 32;
+
+                    final double tileW = parsedWidth
+                        .clamp(1.0, uiImage.width.toDouble())
+                        .toDouble();
+                    final double tileH = parsedHeight
+                        .clamp(1.0, uiImage.height.toDouble())
+                        .toDouble();
+
                     setState(() {
                       _tilesetImage = MemoryImage(bytes);
                       showTilemap = true;
-                      // Mantém 32x32 como padrão por enquanto.
-                      _tileWidth = 32;
-                      _tileHeight = 32;
+                      _tileWidth = tileW;
+                      _tileHeight = tileH;
                     });
 
-                    Navigator.of(context).pop(controller.values);
+                    scope.setTileset(
+                      image: uiImage,
+                      tileWidth: tileW,
+                      tileHeight: tileH,
+                    );
+
+                    Navigator.of(context).pop(values);
                   },
                 ),
               ],
@@ -140,6 +164,11 @@ class _TilesetMenuState extends State<TilesetMenu> {
                         tileHeight: _tileHeight,
                         gridColor: Theme.of(context).colorScheme.secondary,
                         highlightColor: Theme.of(context).colorScheme.primary,
+                        selectedX: EditorScope.of(context).selectedTileX,
+                        selectedY: EditorScope.of(context).selectedTileY,
+                        onTileSelected: (x, y) {
+                          EditorScope.of(context).selectTile(x, y);
+                        },
                       ),
                     ),
                   )

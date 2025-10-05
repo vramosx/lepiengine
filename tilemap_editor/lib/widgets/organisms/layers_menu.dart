@@ -1,6 +1,7 @@
 import 'package:lepiengine_tilemap_editor/widgets/molecules/layers_list.dart';
 import 'package:lepiengine_tilemap_editor/widgets/molecules/menu_header.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:lepiengine_tilemap_editor/controllers/editor_controller.dart';
 
 class LayersMenu extends StatefulWidget {
   const LayersMenu({super.key});
@@ -10,15 +11,12 @@ class LayersMenu extends StatefulWidget {
 }
 
 class _LayersMenuState extends State<LayersMenu> {
-  List<SortableData<String>> layers = [
-    const SortableData('Sky'),
-    const SortableData('Building'),
-    const SortableData('Over Ground'),
-    const SortableData('Ground'),
-  ];
+  List<SortableData<String>> layers = [];
 
   @override
   Widget build(BuildContext context) {
+    final controller = EditorScope.of(context);
+    layers = controller.layerNames.map((e) => SortableData<String>(e)).toList();
     return Column(
       mainAxisSize: MainAxisSize.max,
       children: [
@@ -37,7 +35,13 @@ class _LayersMenuState extends State<LayersMenu> {
             ),
           ),
         ),
-        LayersList(layers: layers),
+        LayersList(
+          layers: layers,
+          selectedIndex: controller.selectedLayerIndex,
+          onSelect: (index) => controller.selectLayer(index),
+          onListChange: (newList) =>
+              controller.setLayersByNames(newList.map((e) => e.data).toList()),
+        ),
       ],
     );
   }

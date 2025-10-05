@@ -1,9 +1,18 @@
+import 'package:flutter/material.dart' show InkWell;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class LayersList extends StatefulWidget {
   final List<SortableData<String>> layers;
   final Function(List<SortableData<String>> layers)? onListChange;
-  const LayersList({super.key, required this.layers, this.onListChange});
+  final int? selectedIndex;
+  final void Function(int index)? onSelect;
+  const LayersList({
+    super.key,
+    required this.layers,
+    this.onListChange,
+    this.selectedIndex,
+    this.onSelect,
+  });
 
   @override
   State<LayersList> createState() => _LayersListState();
@@ -89,29 +98,43 @@ class _LayersListState extends State<LayersList> {
                             });
                             widget.onListChange?.call(layers);
                           },
-                          child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Row(
-                              spacing: 8,
-                              children: [
-                                const SortableDragHandle(
-                                  child: Icon(LucideIcons.equal, size: 14),
+                          child: InkWell(
+                            onTap: () => widget.onSelect?.call(i),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: (widget.selectedIndex == i)
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withAlpha(60)
+                                    : null,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Row(
+                                  spacing: 8,
+                                  children: [
+                                    const SortableDragHandle(
+                                      child: Icon(LucideIcons.equal, size: 14),
+                                    ),
+                                    Expanded(
+                                      child: Text(layers[i].data).xSmall,
+                                    ),
+                                    Tooltip(
+                                      tooltip: TooltipContainer(
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.card,
+                                        child: Text("Delete layer"),
+                                      ).call,
+                                      child: IconButton(
+                                        onPressed: () => deleteLayer(layers[i]),
+                                        icon: Icon(LucideIcons.trash, size: 12),
+                                        variance: ButtonVariance.ghost,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Expanded(child: Text(layers[i].data).xSmall),
-                                Tooltip(
-                                  tooltip: TooltipContainer(
-                                    backgroundColor: Theme.of(
-                                      context,
-                                    ).colorScheme.card,
-                                    child: Text("Delete layer"),
-                                  ).call,
-                                  child: IconButton(
-                                    onPressed: () => deleteLayer(layers[i]),
-                                    icon: Icon(LucideIcons.trash, size: 12),
-                                    variance: ButtonVariance.ghost,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),

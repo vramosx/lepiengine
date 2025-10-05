@@ -7,6 +7,7 @@ import 'package:lepiengine_tilemap_editor/widgets/organisms/left_sidemenu.dart';
 import 'package:lepiengine_tilemap_editor/widgets/organisms/topbar.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'controllers/version_controller.dart';
+import 'controllers/editor_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,20 +21,24 @@ class LepiEngineTilemapEditor extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return ShadcnApp(
-      theme: ThemeData(
-        typography: Typography.geist().copyWith(
-          sans: () => TextStyle(fontFamily: 'Montserrat'),
-          mono: () => TextStyle(fontFamily: 'Montserrat'),
-          h1: () => TextStyle(fontWeight: FontWeight.w100, fontSize: 18),
-          h3: () => TextStyle(fontWeight: FontWeight.w200, fontSize: 10),
-          textMuted: () => TextStyle(fontWeight: FontWeight.w100, fontSize: 10),
-          base: () => TextStyle(fontWeight: FontWeight.w200),
+    return EditorScope(
+      controller: EditorController(),
+      child: ShadcnApp(
+        theme: ThemeData(
+          typography: Typography.geist().copyWith(
+            sans: () => TextStyle(fontFamily: 'Montserrat'),
+            mono: () => TextStyle(fontFamily: 'Montserrat'),
+            h1: () => TextStyle(fontWeight: FontWeight.w100, fontSize: 18),
+            h3: () => TextStyle(fontWeight: FontWeight.w200, fontSize: 10),
+            textMuted: () =>
+                TextStyle(fontWeight: FontWeight.w100, fontSize: 10),
+            base: () => TextStyle(fontWeight: FontWeight.w200),
+          ),
+          colorScheme: ColorSchemes.darkViolet,
+          radius: 0.5,
         ),
-        colorScheme: ColorSchemes.darkViolet,
-        radius: 0.5,
+        home: const TilemapEditor(),
       ),
-      home: const TilemapEditor(),
     );
   }
 }
