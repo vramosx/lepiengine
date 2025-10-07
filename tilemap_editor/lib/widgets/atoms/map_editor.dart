@@ -210,10 +210,12 @@ class _MapEditorPainter extends CustomPainter {
     final double srcW = controller.tilePixelWidth;
     final double srcH = controller.tilePixelHeight;
     final paint = Paint();
+    // Desenha do fundo para o topo: o item que aparece no topo da lista
+    // deve ser pintado por último (ficar acima dos demais).
     for (
-      int layerIndex = 0;
-      layerIndex < controller.layers.length;
-      layerIndex++
+      int layerIndex = controller.layers.length - 1;
+      layerIndex >= 0;
+      layerIndex--
     ) {
       final layer = controller.layers[layerIndex];
       if (!layer.visible) continue;

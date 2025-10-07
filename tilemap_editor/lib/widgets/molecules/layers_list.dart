@@ -86,182 +86,171 @@ class _LayersListState extends State<LayersList> {
             SingleChildScrollView(
               child: SortableLayer(
                 lock: true,
-                child: SortableDropFallback<int>(
-                  onAccept: (value) {
-                    setState(() {
-                      layers.add(layers.removeAt(value.data));
-                    });
-                    widget.onListChange?.call(layers);
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (int i = 0; i < layers.length; i++)
-                        Sortable<String>(
-                          key: ValueKey(layers[i].data),
-                          data: layers[i],
-                          // we only want user to drag the item from the handle,
-                          // so we disable the drag on the item itself
-                          enabled: false,
-                          onAcceptTop: (value) {
-                            setState(() {
-                              layers.swapItem(value, i);
-                            });
-                            widget.onListChange?.call(layers);
-                          },
-                          onAcceptBottom: (value) {
-                            setState(() {
-                              layers.swapItem(value, i + 1);
-                            });
-                            widget.onListChange?.call(layers);
-                          },
-                          child: InkWell(
-                            onTap: () => widget.onSelect?.call(i),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: (widget.selectedIndex == i)
-                                    ? Theme.of(
-                                        context,
-                                      ).colorScheme.primary.withAlpha(60)
-                                    : null,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Row(
-                                  spacing: 8,
-                                  children: [
-                                    const SortableDragHandle(
-                                      child: Icon(LucideIcons.equal, size: 14),
-                                    ),
-                                    Expanded(
-                                      child: _InlineRename(
-                                        key: ValueKey(layers[i].data),
-                                        initial: layers[i].data,
-                                        onSubmit: (value) async {
-                                          final newName = value.trim();
-                                          if (newName.isEmpty) return true;
-                                          // Impede duplicatas contra a lista atual
-                                          final exists = layers.any(
-                                            (e) =>
-                                                e.data == newName &&
-                                                e != layers[i],
+                // desabilita animação de drop para evitar rastro/ghost visual
+                dropDuration: Duration.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int i = 0; i < layers.length; i++)
+                      Sortable<String>(
+                        key: ValueKey(layers[i].data),
+                        data: layers[i],
+                        // we only want user to drag the item from the handle,
+                        // so we disable the drag on the item itself
+                        enabled: false,
+                        onAcceptTop: (value) {
+                          setState(() {
+                            layers.swapItem(value, i);
+                          });
+                          widget.onListChange?.call(layers);
+                        },
+                        onAcceptBottom: (value) {
+                          setState(() {
+                            layers.swapItem(value, i + 1);
+                          });
+                          widget.onListChange?.call(layers);
+                        },
+                        child: InkWell(
+                          onTap: () => widget.onSelect?.call(i),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: (widget.selectedIndex == i)
+                                  ? Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withAlpha(60)
+                                  : null,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Row(
+                                spacing: 8,
+                                children: [
+                                  const SortableDragHandle(
+                                    child: Icon(LucideIcons.equal, size: 14),
+                                  ),
+                                  Expanded(
+                                    child: _InlineRename(
+                                      key: ValueKey(layers[i].data),
+                                      initial: layers[i].data,
+                                      onSubmit: (value) async {
+                                        final newName = value.trim();
+                                        if (newName.isEmpty) return true;
+                                        // Impede duplicatas contra a lista atual
+                                        final exists = layers.any(
+                                          (e) =>
+                                              e.data == newName &&
+                                              e != layers[i],
+                                        );
+                                        if (exists) {
+                                          await showDialog(
+                                            context: context,
+                                            builder: (context) {
+                                              return AlertDialog(
+                                                title: const Text(
+                                                  'Duplicate layer name',
+                                                ),
+                                                content: const Text(
+                                                  'A layer with this name already exists. Please choose a different name.',
+                                                ),
+                                                actions: [
+                                                  PrimaryButton(
+                                                    child: const Text('OK'),
+                                                    onPressed: () =>
+                                                        Navigator.pop(context),
+                                                  ),
+                                                ],
+                                              );
+                                            },
                                           );
-                                          if (exists) {
-                                            await showDialog(
-                                              context: context,
-                                              builder: (context) {
-                                                return AlertDialog(
-                                                  title: const Text(
-                                                    'Duplicate layer name',
-                                                  ),
-                                                  content: const Text(
-                                                    'A layer with this name already exists. Please choose a different name.',
-                                                  ),
-                                                  actions: [
-                                                    PrimaryButton(
-                                                      child: const Text('OK'),
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            context,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            );
-                                            return false;
-                                          }
-                                          // Primeiro renomeia no controlador (fonte da verdade)
-                                          EditorScope.of(
-                                            context,
-                                          ).renameLayer(i, newName);
-                                          // Atualiza a cópia local apenas para feedback imediato
-                                          setState(() {
-                                            layers[i] = SortableData<String>(
-                                              newName,
-                                            );
-                                          });
-                                          return true;
-                                        },
-                                      ),
-                                    ),
-                                    Tooltip(
-                                      tooltip: TooltipContainer(
-                                        backgroundColor: Theme.of(
+                                          return false;
+                                        }
+                                        // Primeiro renomeia no controlador (fonte da verdade)
+                                        EditorScope.of(
                                           context,
-                                        ).colorScheme.card,
-                                        child: Text(
-                                          EditorScope.of(
-                                                context,
-                                              ).layers[i].visible
-                                              ? 'Hide layer'
-                                              : 'Show layer',
-                                        ),
-                                      ).call,
-                                      child: IconButton(
-                                        onPressed: () {
-                                          EditorScope.of(
-                                            context,
-                                          ).toggleLayerVisibility(i);
-                                        },
-                                        icon: Icon(
-                                          EditorScope.of(
-                                                context,
-                                              ).layers[i].visible
-                                              ? LucideIcons.eye
-                                              : LucideIcons.eyeOff,
-                                          size: 12,
-                                        ),
-                                        variance: ButtonVariance.ghost,
-                                      ),
+                                        ).renameLayer(i, newName);
+                                        // Atualiza a cópia local apenas para feedback imediato
+                                        setState(() {
+                                          layers[i] = SortableData<String>(
+                                            newName,
+                                          );
+                                        });
+                                        return true;
+                                      },
                                     ),
-                                    Tooltip(
-                                      tooltip: TooltipContainer(
-                                        backgroundColor: Theme.of(
+                                  ),
+                                  Tooltip(
+                                    tooltip: TooltipContainer(
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.card,
+                                      child: Text(
+                                        EditorScope.of(
+                                              context,
+                                            ).layers[i].visible
+                                            ? 'Hide layer'
+                                            : 'Show layer',
+                                      ),
+                                    ).call,
+                                    child: IconButton(
+                                      onPressed: () {
+                                        EditorScope.of(
                                           context,
-                                        ).colorScheme.card,
-                                        child: Text(
-                                          EditorScope.of(
-                                                context,
-                                              ).layers[i].showCollisions
-                                              ? 'Hide collisions'
-                                              : 'Show collisions',
-                                        ),
-                                      ).call,
-                                      child: IconButton(
-                                        onPressed: () {
-                                          EditorScope.of(
-                                            context,
-                                          ).toggleLayerCollisionVisibility(i);
-                                        },
-                                        icon: Icon(
-                                          LucideIcons.blocks,
-                                          size: 12,
-                                        ),
-                                        variance: ButtonVariance.ghost,
+                                        ).toggleLayerVisibility(i);
+                                      },
+                                      icon: Icon(
+                                        EditorScope.of(
+                                              context,
+                                            ).layers[i].visible
+                                            ? LucideIcons.eye
+                                            : LucideIcons.eyeOff,
+                                        size: 12,
                                       ),
+                                      variance: ButtonVariance.ghost,
                                     ),
-                                    Tooltip(
-                                      tooltip: TooltipContainer(
-                                        backgroundColor: Theme.of(
+                                  ),
+                                  Tooltip(
+                                    tooltip: TooltipContainer(
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.card,
+                                      child: Text(
+                                        EditorScope.of(
+                                              context,
+                                            ).layers[i].showCollisions
+                                            ? 'Hide collisions'
+                                            : 'Show collisions',
+                                      ),
+                                    ).call,
+                                    child: IconButton(
+                                      onPressed: () {
+                                        EditorScope.of(
                                           context,
-                                        ).colorScheme.card,
-                                        child: Text("Delete layer"),
-                                      ).call,
-                                      child: IconButton(
-                                        onPressed: () => deleteLayer(layers[i]),
-                                        icon: Icon(LucideIcons.trash, size: 12),
-                                        variance: ButtonVariance.ghost,
-                                      ),
+                                        ).toggleLayerCollisionVisibility(i);
+                                      },
+                                      icon: Icon(LucideIcons.blocks, size: 12),
+                                      variance: ButtonVariance.ghost,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  Tooltip(
+                                    tooltip: TooltipContainer(
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.card,
+                                      child: Text('Delete layer'),
+                                    ).call,
+                                    child: IconButton(
+                                      onPressed: () => deleteLayer(layers[i]),
+                                      icon: Icon(LucideIcons.trash, size: 12),
+                                      variance: ButtonVariance.ghost,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),
