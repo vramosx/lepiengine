@@ -1,9 +1,7 @@
-import 'dart:ui';
-
-import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
+// import 'package:flutter/gestures.dart';
 import 'package:lepiengine_tilemap_editor/widgets/molecules/map_render.dart';
 import 'package:lepiengine_tilemap_editor/widgets/organisms/left_sidemenu.dart';
+import 'package:lepiengine_tilemap_editor/widgets/organisms/right_sidemenu.dart';
 import 'package:lepiengine_tilemap_editor/widgets/organisms/topbar.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'controllers/version_controller.dart';
@@ -65,6 +63,71 @@ class _TilemapEditorState extends State<TilemapEditor> {
             children: [
               // topbar
               Topbar(),
+              // tool buttons centered
+              Center(
+                child: Builder(
+                  builder: (context) {
+                    final controller = EditorScope.of(context);
+                    final selected = controller.currentTool;
+                    return Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.card,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Brush button
+                          (selected == EditingTool.brush)
+                              ? PrimaryButton(
+                                  shape: ButtonShape.circle,
+                                  onPressed: () =>
+                                      controller.setTool(EditingTool.brush),
+                                  child: const Icon(
+                                    LucideIcons.pencil,
+                                    size: 14,
+                                  ),
+                                )
+                              : IconButton(
+                                  shape: ButtonShape.circle,
+                                  variance: ButtonVariance.ghost,
+                                  onPressed: () =>
+                                      controller.setTool(EditingTool.brush),
+                                  icon: const Icon(
+                                    LucideIcons.pencil,
+                                    size: 14,
+                                  ),
+                                ),
+                          const Gap(4),
+                          // Bucket button
+                          (selected == EditingTool.bucket)
+                              ? PrimaryButton(
+                                  shape: ButtonShape.circle,
+                                  onPressed: () =>
+                                      controller.setTool(EditingTool.bucket),
+                                  child: const Icon(
+                                    LucideIcons.paintBucket,
+                                    size: 14,
+                                  ),
+                                )
+                              : IconButton(
+                                  shape: ButtonShape.circle,
+                                  variance: ButtonVariance.ghost,
+                                  onPressed: () =>
+                                      controller.setTool(EditingTool.bucket),
+                                  icon: const Icon(
+                                    LucideIcons.paintBucket,
+                                    size: 14,
+                                  ),
+                                ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
               // editor area
               Expanded(
                 child: Padding(
@@ -72,7 +135,14 @@ class _TilemapEditorState extends State<TilemapEditor> {
                   child: Stack(
                     children: [
                       // map area
-                      Row(children: [LeftSideMenu()]),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          LeftSideMenu(),
+                          Spacer(),
+                          RightSideMenu(),
+                        ],
+                      ),
 
                       // Menus
                     ],

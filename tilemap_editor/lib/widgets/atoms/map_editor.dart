@@ -26,9 +26,32 @@ class MapEditor extends StatefulWidget {
 class _MapEditorState extends State<MapEditor> {
   Offset? _hoverPosition;
   bool _isDragging = false;
-  bool _dragPaint = false; // true pinta (direito), false apaga (esquerdo)
+  bool _dragPaint = false; // true pinta, false apaga (Alt/direito)
   int? _lastTileX;
   int? _lastTileY;
+  EditorController? _controller;
+
+  void _onControllerChanged() {
+    // Rebuild para atualizar tamanho do canvas e grid quando tilesX/Y/tileSize mudarem
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final c = EditorScope.of(context);
+    if (_controller != c) {
+      _controller?.removeListener(_onControllerChanged);
+      _controller = c;
+      _controller?.addListener(_onControllerChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onControllerChanged);
+    super.dispose();
+  }
 
   void _onHover(PointerHoverEvent event) {
     setState(() => _hoverPosition = event.localPosition);
@@ -45,12 +68,16 @@ class _MapEditorState extends State<MapEditor> {
     _lastTileX = x;
     _lastTileY = y;
     final controller = EditorScope.of(context);
-    controller.paintOrErase(x, y, paint: paint);
+    if (controller.currentTool == EditingTool.bucket) {
+      controller.floodFillAt(x, y, paint: paint);
+    } else {
+      controller.paintOrErase(x, y, paint: paint);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = EditorScope.of(context);
+    final controller = _controller ?? EditorScope.of(context);
     return MouseRegion(
       onHover: _onHover,
       onExit: _onExit,
@@ -73,11 +100,21 @@ class _MapEditorState extends State<MapEditor> {
               return;
             }
             final bool right = (e.buttons & kSecondaryMouseButton) != 0;
-            // direito = pintar; esquerdo = apagar
-            _dragPaint = right;
+            final bool alt =
+                keys.contains(LogicalKeyboardKey.altLeft) ||
+                keys.contains(LogicalKeyboardKey.altRight);
+            // esquerdo pinta; direito OU Alt apaga
+            final bool erase = right || alt;
+            _dragPaint = !erase;
           });
           if (_isDragging) {
             _handlePaintAt(e.localPosition, paint: _dragPaint);
+            // Se for balde, não seguimos arrastando
+            if (controller.currentTool == EditingTool.bucket) {
+              setState(() {
+                _isDragging = false;
+              });
+            }
           }
         },
         onPointerMove: (PointerMoveEvent e) {
@@ -92,8 +129,14 @@ class _MapEditorState extends State<MapEditor> {
                 keys.contains(LogicalKeyboardKey.metaLeft) ||
                 keys.contains(LogicalKeyboardKey.metaRight);
             if (ctrlOrMeta) return; // não desenhar com CTRL/CMD
+            if (controller.currentTool == EditingTool.bucket)
+              return; // sem drag com balde
             final bool right = (e.buttons & kSecondaryMouseButton) != 0;
-            _dragPaint = right; // direito = pintar; esquerdo = apagar
+            final bool alt =
+                keys.contains(LogicalKeyboardKey.altLeft) ||
+                keys.contains(LogicalKeyboardKey.altRight);
+            final bool erase = right || alt; // direito/Alt apaga
+            _dragPaint = !erase; // esquerdo pinta
             _handlePaintAt(e.localPosition, paint: _dragPaint);
           }
         },
