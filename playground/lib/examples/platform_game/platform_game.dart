@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart' show Colors, debugPrint;
@@ -154,7 +155,11 @@ class PlatformMap extends GameObject {
         .toList();
 
     final solidRawTiles = platformTilemap['collisions'] as List<dynamic>;
-    Set<int> solidTiles = Set.from(solidRawTiles.map<int>((e) => e as int));
+    Set<Point<int>> solidTiles = Set.from(
+      solidRawTiles.map<Point<int>>(
+        (e) => Point<int>(e[0] as int, e[1] as int),
+      ),
+    );
 
     final tilemap = Tilemap(tileset: tileset, map: map, solidTiles: solidTiles);
     addChild(backgroundTilemap);

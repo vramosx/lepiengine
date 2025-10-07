@@ -1,27 +1,84 @@
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lepiengine/engine/core/collider.dart';
 import '../core/game_object.dart';
 import '../models/tileset.dart';
 
+class TileLayer {
+  TileLayer({
+    required this.name,
+    required this.tiles,
+    Set<math.Point<int>>? solidTiles,
+  }) : solidTiles = solidTiles ?? <math.Point<int>>{};
+
+  final String name;
+  final List<List<int>> tiles;
+  final Set<math.Point<int>> solidTiles; // posições sólidas por camada
+}
+
 class Tilemap extends GameObject {
   final Tileset tileset;
+  // Suporte legado: mapa único
   final List<List<int>> map;
-  final int tileWidth;
+  // Novo: múltiplas camadas
+  final List<TileLayer> layers;
+  final int tileWidth; // tamanho de desenho do tile no mundo
   final int tileHeight;
-  final Set<int> solidTiles; // tiles que têm colisão
+  // Legado: sólidos em um único conjunto
+  final Set<math.Point<int>> solidTiles;
   final bool debugCollisions;
 
+  /// Construtor legado (um único `map`). Mantido por compatibilidade.
   Tilemap({
     required this.tileset,
-    required this.map,
+    List<List<int>>? map,
+    this.layers = const <TileLayer>[],
     this.tileWidth = 32,
     this.tileHeight = 32,
-    this.solidTiles = const {},
+    Set<math.Point<int>> solidTiles = const <math.Point<int>>{},
     this.debugCollisions = false,
     super.position,
     super.name,
-  });
+  }) : map = map ?? const <List<int>>[],
+       solidTiles = solidTiles;
+
+  /// Novo construtor para múltiplas camadas.
+  Tilemap.fromLayers({
+    required this.tileset,
+    required this.layers,
+    this.tileWidth = 32,
+    this.tileHeight = 32,
+    this.debugCollisions = false,
+    super.position,
+    super.name,
+  }) : map = const <List<int>>[],
+       solidTiles = const <math.Point<int>>{};
+
+  int get gridHeight {
+    if (layers.isNotEmpty) return layers.first.tiles.length;
+    return map.length;
+  }
+
+  int get gridWidth {
+    if (layers.isNotEmpty) {
+      return layers.first.tiles.isNotEmpty
+          ? layers.first.tiles.first.length
+          : 0;
+    }
+    return map.isNotEmpty ? map.first.length : 0;
+  }
+
+  Set<math.Point<int>> get allSolidTiles {
+    if (layers.isEmpty) return solidTiles;
+    final Set<math.Point<int>> combined = <math.Point<int>>{};
+    for (final layer in layers) {
+      combined.addAll(layer.solidTiles);
+    }
+    // Inclui sólidos legados, se existirem
+    combined.addAll(solidTiles);
+    return combined;
+  }
 
   @override
   void onAdd() {
@@ -31,35 +88,37 @@ class Tilemap extends GameObject {
 
   /// Gera colliders mesclados para os tiles sólidos
   void _generateColliders() {
-    for (int y = 0; y < map.length; y++) {
+    if (gridWidth == 0 || gridHeight == 0) return;
+
+    final Set<math.Point<int>> solids = allSolidTiles;
+    for (int y = 0; y < gridHeight; y++) {
       int? startX;
-      for (int x = 0; x < map[y].length; x++) {
-        final isSolid = solidTiles.contains(map[y][x]);
+      for (int x = 0; x < gridWidth; x++) {
+        final bool isSolid = solids.contains(math.Point<int>(x, y));
 
         if (isSolid && startX == null) {
           // inicia uma sequência de sólidos
           startX = x;
         }
 
-        final reachedEnd =
-            (!isSolid && startX != null) || // fim de sequência
-            (isSolid && x == map[y].length - 1); // última célula da linha
+        final bool reachedEnd =
+            (!isSolid && startX != null) || (isSolid && x == gridWidth - 1);
 
         if (reachedEnd) {
-          final endX = isSolid ? x : x - 1;
-          final width = (endX - startX! + 1) * tileWidth;
-          final height = tileHeight;
+          final int endX = isSolid ? x : x - 1;
+          final int widthPx = (endX - startX! + 1) * tileWidth;
+          final int heightPx = tileHeight;
 
           final collider = AABBCollider(
             gameObject: this,
-            size: Size(width.toDouble(), height.toDouble()),
+            size: Size(widthPx.toDouble(), heightPx.toDouble()),
             offset: Offset(
               startX * tileWidth.toDouble(),
               y * tileHeight.toDouble(),
-            ), // posição dentro do mapa
+            ),
             anchor: ColliderAnchor.topLeft,
             isStatic: true,
-            debugColor: const Color(0xFFFF0000), // vermelho
+            debugColor: const Color(0xFFFF0000),
           );
           addCollider(collider);
           startX = null;
@@ -71,34 +130,62 @@ class Tilemap extends GameObject {
   @override
   void render(Canvas canvas) {
     final paint = Paint();
-    for (int y = 0; y < map.length; y++) {
-      for (int x = 0; x < map[y].length; x++) {
-        final index = map[y][x];
-        if (index < 0) continue;
+    if (layers.isNotEmpty) {
+      // Desenha todas as camadas na ordem fornecida
+      for (final layer in layers) {
+        for (int y = 0; y < layer.tiles.length; y++) {
+          final row = layer.tiles[y];
+          for (int x = 0; x < row.length; x++) {
+            final int index = row[x];
+            if (index < 0) continue;
 
-        final src = tileset.getTileRect(index);
-        final dst = Rect.fromLTWH(
-          x * tileWidth.toDouble(),
-          y * tileHeight.toDouble(),
-          tileWidth.toDouble(),
-          tileHeight.toDouble(),
-        );
+            final Rect src = tileset.getTileRect(index);
+            final Rect dst = Rect.fromLTWH(
+              x * tileWidth.toDouble(),
+              y * tileHeight.toDouble(),
+              tileWidth.toDouble(),
+              tileHeight.toDouble(),
+            );
+            canvas.drawImageRect(tileset.image, src, dst, paint);
+          }
+        }
+      }
+    } else {
+      // Renderização legada de mapa único
+      for (int y = 0; y < map.length; y++) {
+        for (int x = 0; x < map[y].length; x++) {
+          final int index = map[y][x];
+          if (index < 0) continue;
 
-        canvas.drawImageRect(tileset.image, src, dst, paint);
-
-        // Modo debug: pinta tiles sólidos
-        if (debugCollisions && solidTiles.contains(index)) {
-          final debugPaint = Paint()
-            ..color =
-                const Color(0x55FF0000) // vermelho semi-transparente
-            ..style = PaintingStyle.fill;
-          canvas.drawRect(dst, debugPaint);
+          final Rect src = tileset.getTileRect(index);
+          final Rect dst = Rect.fromLTWH(
+            x * tileWidth.toDouble(),
+            y * tileHeight.toDouble(),
+            tileWidth.toDouble(),
+            tileHeight.toDouble(),
+          );
+          canvas.drawImageRect(tileset.image, src, dst, paint);
         }
       }
     }
 
-    // Opcional: também desenhar os colliders mesclados
+    // Overlay de debug de sólidos (pintura única por célula)
     if (debugCollisions) {
+      final Set<math.Point<int>> solids = allSolidTiles;
+      final Paint debugPaint = Paint()
+        ..color = const Color(0x55FF0000)
+        ..style = PaintingStyle.fill;
+      for (final p in solids) {
+        final Rect dst = Rect.fromLTWH(
+          p.x * tileWidth.toDouble(),
+          p.y * tileHeight.toDouble(),
+          tileWidth.toDouble(),
+          tileHeight.toDouble(),
+        );
+        canvas.drawRect(dst, debugPaint);
+      }
+
+      // Também desenha os colliders mesclados
       for (final collider in colliders) {
         collider.debugRender(canvas);
       }
