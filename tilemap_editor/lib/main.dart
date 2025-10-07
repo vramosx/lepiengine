@@ -122,6 +122,26 @@ class _TilemapEditorState extends State<TilemapEditor> {
                                     size: 14,
                                   ),
                                 ),
+                          (selected == EditingTool.collision)
+                              ? PrimaryButton(
+                                  shape: ButtonShape.circle,
+                                  onPressed: () =>
+                                      controller.setTool(EditingTool.collision),
+                                  child: const Icon(
+                                    LucideIcons.blocks,
+                                    size: 14,
+                                  ),
+                                )
+                              : IconButton(
+                                  shape: ButtonShape.circle,
+                                  variance: ButtonVariance.ghost,
+                                  onPressed: () =>
+                                      controller.setTool(EditingTool.collision),
+                                  icon: const Icon(
+                                    LucideIcons.blocks,
+                                    size: 14,
+                                  ),
+                                ),
                         ],
                       ),
                     );

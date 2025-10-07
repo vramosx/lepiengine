@@ -70,6 +70,8 @@ class _MapEditorState extends State<MapEditor> {
     final controller = EditorScope.of(context);
     if (controller.currentTool == EditingTool.bucket) {
       controller.floodFillAt(x, y, paint: paint);
+    } else if (controller.currentTool == EditingTool.collision) {
+      controller.setCollisionAt(x, y, add: paint);
     } else {
       controller.paintOrErase(x, y, paint: paint);
     }
@@ -214,6 +216,7 @@ class _MapEditorPainter extends CustomPainter {
       layerIndex++
     ) {
       final layer = controller.layers[layerIndex];
+      if (!layer.visible) continue;
       final tilesetDef = controller.getTilesetById(layer.tilesetId);
       if (tilesetDef == null) continue;
       final tileset = tilesetDef.image;
@@ -242,6 +245,8 @@ class _MapEditorPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     _drawTiles(canvas, size, controller);
+    // Desenha overlay de colisões por layer
+    _drawCollisions(canvas, size, controller);
     final paint = Paint()
       ..color = gridColor
       ..style = PaintingStyle.stroke;
@@ -301,4 +306,88 @@ class _MapEditorPainter extends CustomPainter {
         highlightColor != oldDelegate.highlightColor ||
         controller != oldDelegate.controller;
   }
+}
+
+extension on _MapEditorPainter {
+  void _drawCollisions(Canvas canvas, Size size, EditorController controller) {
+    final Paint fill = Paint()..color = const Color(0x88FF0000);
+    final Paint stroke = Paint()
+      ..color = const Color(0xCCFF0000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (final layer in controller.layers) {
+      if (!layer.visible || !layer.showCollisions) continue;
+      final rects = _computeCollisionRects(layer.collisions);
+      for (final r in rects) {
+        final Rect canvasRect = Rect.fromLTWH(
+          r.left * tileSize,
+          r.top * tileSize,
+          r.width * tileSize,
+          r.height * tileSize,
+        );
+        canvas.drawRect(canvasRect, fill);
+        canvas.drawRect(canvasRect, stroke);
+      }
+    }
+  }
+
+  List<RectInt> _computeCollisionRects(List<List<bool>> collisions) {
+    final int h = collisions.length;
+    if (h == 0) return const [];
+    final int w = collisions[0].length;
+    final List<List<bool>> visited = List.generate(
+      h,
+      (_) => List<bool>.filled(w, false, growable: false),
+      growable: false,
+    );
+    final List<RectInt> rects = [];
+
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        if (!collisions[y][x] || visited[y][x]) continue;
+        // Expande retângulo máximo (unindo por linhas e colunas contíguas)
+        int maxW = 1;
+        while (x + maxW < w &&
+            collisions[y][x + maxW] &&
+            !visited[y][x + maxW]) {
+          maxW++;
+        }
+        int maxH = 1;
+        bool canExpandDown = true;
+        while (y + maxH < h && canExpandDown) {
+          for (int dx = 0; dx < maxW; dx++) {
+            if (!collisions[y + maxH][x + dx] || visited[y + maxH][x + dx]) {
+              canExpandDown = false;
+              break;
+            }
+          }
+          if (canExpandDown) {
+            maxH++;
+          }
+        }
+        // Marca visitados e adiciona retângulo
+        for (int yy = y; yy < y + maxH; yy++) {
+          for (int xx = x; xx < x + maxW; xx++) {
+            visited[yy][xx] = true;
+          }
+        }
+        rects.add(RectInt(left: x, top: y, width: maxW, height: maxH));
+      }
+    }
+    return rects;
+  }
+}
+
+class RectInt {
+  final int left;
+  final int top;
+  final int width;
+  final int height;
+  const RectInt({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
 }

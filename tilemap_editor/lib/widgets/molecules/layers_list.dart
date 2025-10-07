@@ -190,6 +190,62 @@ class _LayersListState extends State<LayersList> {
                                         backgroundColor: Theme.of(
                                           context,
                                         ).colorScheme.card,
+                                        child: Text(
+                                          EditorScope.of(
+                                                context,
+                                              ).layers[i].visible
+                                              ? 'Hide layer'
+                                              : 'Show layer',
+                                        ),
+                                      ).call,
+                                      child: IconButton(
+                                        onPressed: () {
+                                          EditorScope.of(
+                                            context,
+                                          ).toggleLayerVisibility(i);
+                                        },
+                                        icon: Icon(
+                                          EditorScope.of(
+                                                context,
+                                              ).layers[i].visible
+                                              ? LucideIcons.eye
+                                              : LucideIcons.eyeOff,
+                                          size: 12,
+                                        ),
+                                        variance: ButtonVariance.ghost,
+                                      ),
+                                    ),
+                                    Tooltip(
+                                      tooltip: TooltipContainer(
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.card,
+                                        child: Text(
+                                          EditorScope.of(
+                                                context,
+                                              ).layers[i].showCollisions
+                                              ? 'Hide collisions'
+                                              : 'Show collisions',
+                                        ),
+                                      ).call,
+                                      child: IconButton(
+                                        onPressed: () {
+                                          EditorScope.of(
+                                            context,
+                                          ).toggleLayerCollisionVisibility(i);
+                                        },
+                                        icon: Icon(
+                                          LucideIcons.blocks,
+                                          size: 12,
+                                        ),
+                                        variance: ButtonVariance.ghost,
+                                      ),
+                                    ),
+                                    Tooltip(
+                                      tooltip: TooltipContainer(
+                                        backgroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.card,
                                         child: Text("Delete layer"),
                                       ).call,
                                       child: IconButton(

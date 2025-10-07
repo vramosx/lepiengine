@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lepiengine_tilemap_editor/models/index.dart';
 
-enum EditingTool { brush, bucket }
+enum EditingTool { brush, bucket, collision }
 
 class EditorController extends ChangeNotifier {
   // Grid/display configuration
@@ -340,6 +340,48 @@ class EditorController extends ChangeNotifier {
       stack.add((cx, cy + 1));
       stack.add((cx, cy - 1));
     }
+    notifyListeners();
+  }
+
+  // --- Collision editing ---
+  void setCollisionAt(int x, int y, {required bool add}) {
+    if (_selectedLayerIndex < 0 || _selectedLayerIndex >= _layers.length) {
+      return;
+    }
+    if (x < 0 || y < 0 || x >= tilesX || y >= tilesY) return;
+    final layer = _layers[_selectedLayerIndex];
+    layer.collisions[y][x] = add;
+    notifyListeners();
+  }
+
+  void setLayerCollisionVisibility(int index, bool visible) {
+    if (index < 0 || index >= _layers.length) return;
+    final layer = _layers[index];
+    if (layer.showCollisions == visible) return;
+    layer.showCollisions = visible;
+    notifyListeners();
+  }
+
+  void toggleLayerCollisionVisibility(int index) {
+    if (index < 0 || index >= _layers.length) return;
+    final layer = _layers[index];
+    layer.showCollisions = !layer.showCollisions;
+    notifyListeners();
+  }
+
+  // --- Layer visibility ---
+  void setLayerVisibility(int index, bool visible) {
+    if (index < 0 || index >= _layers.length) return;
+    final layer = _layers[index];
+    if (layer.visible == visible) return;
+    layer.visible = visible;
+    notifyListeners();
+  }
+
+  void toggleLayerVisibility(int index) {
+    if (index < 0 || index >= _layers.length) return;
+    final layer = _layers[index];
+    layer.visible = !layer.visible;
     notifyListeners();
   }
 }
