@@ -1,7 +1,5 @@
 import 'dart:ui' as ui;
-import 'package:flutter/widgets.dart' show ImageProvider;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lepiengine_tilemap_editor/models/index.dart';
 

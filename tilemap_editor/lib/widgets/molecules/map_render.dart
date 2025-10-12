@@ -26,15 +26,18 @@ class _MapRenderState extends State<MapRender> {
   void initState() {
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       setState(() {
-        // Centralize the scene
-        double screenWidth = MediaQuery.sizeOf(context).width;
-        double screenHeight = MediaQuery.sizeOf(context).height;
+        // Centraliza a cena com base no tamanho REAL do mapa
+        final controller = EditorScope.of(context);
+        final double screenWidth = MediaQuery.sizeOf(context).width;
+        final double screenHeight = MediaQuery.sizeOf(context).height;
 
-        double sceneWidth = widget.width.toDouble() * zoom;
-        double sceneHeight = (widget.height.toDouble() + sceneTextSize) * zoom;
+        final double sceneWidth =
+            (controller.tilesX * controller.tileSize) * zoom;
+        final double sceneHeight =
+            (controller.tilesY * controller.tileSize) * zoom;
 
-        left = ((screenWidth - sceneWidth) / 2);
-        top = ((screenHeight - sceneHeight)) / 2;
+        left = (screenWidth - sceneWidth) / 2;
+        top = (screenHeight - sceneHeight) / 2;
       });
     });
 
