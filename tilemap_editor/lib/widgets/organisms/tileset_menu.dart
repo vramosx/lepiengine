@@ -25,6 +25,7 @@ class _TilesetMenuState extends State<TilesetMenu> {
       name: picked.filename,
       image: picked.image,
       provider: picked.provider,
+      path: picked.path,
       tileWidth: props.tileWidth,
       tileHeight: props.tileHeight,
     );

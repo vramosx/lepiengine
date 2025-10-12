@@ -8,9 +8,14 @@ import 'package:lepiengine_tilemap_editor/models/index.dart';
 enum EditingTool { brush, bucket, collision }
 
 class EditorController extends ChangeNotifier {
+  // Estado de projeto
+  bool isDirty = false;
+  String? currentFilePath;
+  bool showGrid = true;
+
   // Grid/display configuration
-  int tilesX = 32;
-  int tilesY = 32;
+  int tilesX = 16;
+  int tilesY = 16;
   double tileSize = 32; // display size in editor canvas
 
   // Tileset slicing (source tiles) - global para o projeto
@@ -29,10 +34,8 @@ class EditorController extends ChangeNotifier {
 
   // Layers
   final List<LayerData> _layers = [
-    LayerData(name: 'Sky', width: 32, height: 32),
-    LayerData(name: 'Building', width: 32, height: 32),
-    LayerData(name: 'Over Ground', width: 32, height: 32),
-    LayerData(name: 'Ground', width: 32, height: 32),
+    LayerData(name: 'Over Ground', width: 16, height: 16),
+    LayerData(name: 'Ground', width: 16, height: 16),
   ];
   int _selectedLayerIndex = 0;
 
@@ -84,6 +87,7 @@ class EditorController extends ChangeNotifier {
     for (final layer in _layers) {
       layer.resize(width: tilesX, height: tilesY);
     }
+    isDirty = true;
     notifyListeners();
   }
 
@@ -94,6 +98,7 @@ class EditorController extends ChangeNotifier {
     // Mantém o grid do editor coerente com o tamanho de tile definido
     // Assumimos tiles quadrados na maioria dos casos; usamos a largura como base
     tileSize = width;
+    isDirty = true;
     notifyListeners();
   }
 
@@ -109,21 +114,56 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setShowGrid(bool value) {
+    if (showGrid == value) return;
+    showGrid = value;
+    notifyListeners();
+  }
+
   String addTileset({
     required String name,
     required ui.Image image,
     required ImageProvider provider,
     double? tileWidth,
     double? tileHeight,
+    String? path,
   }) {
     final String id = '${DateTime.now().microsecondsSinceEpoch}-$name';
     _tilesets.add(
-      TilesetDef(id: id, name: name, image: image, provider: provider),
+      TilesetDef(
+        id: id,
+        name: name,
+        image: image,
+        provider: provider,
+        path: path,
+      ),
     );
     if (tileWidth != null) tilePixelWidth = tileWidth;
     if (tileHeight != null) tilePixelHeight = tileHeight;
+    isDirty = true;
     notifyListeners();
     return id;
+  }
+
+  /// Adiciona um tileset preservando o ID (para reabrir projetos)
+  void addTilesetWithId({
+    required String id,
+    required String name,
+    required ui.Image image,
+    required ImageProvider provider,
+    String? path,
+  }) {
+    _tilesets.removeWhere((t) => t.id == id);
+    _tilesets.add(
+      TilesetDef(
+        id: id,
+        name: name,
+        image: image,
+        provider: provider,
+        path: path,
+      ),
+    );
+    notifyListeners();
   }
 
   void setLayerTileset(String tilesetId) {
@@ -131,6 +171,7 @@ class EditorController extends ChangeNotifier {
     if (layer == null) return;
     if (getTilesetById(tilesetId) == null) return;
     layer.tilesetId = tilesetId;
+    isDirty = true;
     notifyListeners();
   }
 
@@ -142,6 +183,7 @@ class EditorController extends ChangeNotifier {
         layer.tilesetId = fallbackId;
       }
     }
+    isDirty = true;
     notifyListeners();
   }
 
@@ -190,6 +232,7 @@ class EditorController extends ChangeNotifier {
     if (_selectedLayerIndex >= _layers.length) {
       _selectedLayerIndex = _layers.isEmpty ? -1 : _layers.length - 1;
     }
+    isDirty = true;
     notifyListeners();
   }
 
@@ -215,6 +258,7 @@ class EditorController extends ChangeNotifier {
     } else if (_selectedLayerIndex >= _layers.length) {
       _selectedLayerIndex = _layers.length - 1;
     }
+    isDirty = true;
     notifyListeners();
   }
 
@@ -232,6 +276,7 @@ class EditorController extends ChangeNotifier {
     }
     _layers.add(LayerData(name: finalName, width: tilesX, height: tilesY));
     _selectedLayerIndex = _layers.length - 1;
+    isDirty = true;
     notifyListeners();
   }
 
@@ -244,6 +289,7 @@ class EditorController extends ChangeNotifier {
       return; // ignora rename inválido
     }
     _layers[index].name = finalName;
+    isDirty = true;
     notifyListeners();
   }
 
@@ -256,6 +302,7 @@ class EditorController extends ChangeNotifier {
     if (!paint) {
       // apagar sempre 1x1
       layer.tiles[y][x] = null;
+      isDirty = true;
       notifyListeners();
       return;
     }
@@ -279,12 +326,14 @@ class EditorController extends ChangeNotifier {
         layer.tiles[ty][tx] = TileRef(tileX: srcX, tileY: srcY);
       }
     }
+    isDirty = true;
     notifyListeners();
   }
 
   void floodFillAt(int x, int y, {required bool paint}) {
-    if (_selectedLayerIndex < 0 || _selectedLayerIndex >= _layers.length)
+    if (_selectedLayerIndex < 0 || _selectedLayerIndex >= _layers.length) {
       return;
+    }
     if (x < 0 || y < 0 || x >= tilesX || y >= tilesY) return;
 
     final layer = _layers[_selectedLayerIndex];
@@ -340,6 +389,7 @@ class EditorController extends ChangeNotifier {
       stack.add((cx, cy + 1));
       stack.add((cx, cy - 1));
     }
+    isDirty = true;
     notifyListeners();
   }
 
@@ -351,6 +401,7 @@ class EditorController extends ChangeNotifier {
     if (x < 0 || y < 0 || x >= tilesX || y >= tilesY) return;
     final layer = _layers[_selectedLayerIndex];
     layer.collisions[y][x] = add;
+    isDirty = true;
     notifyListeners();
   }
 
@@ -375,6 +426,7 @@ class EditorController extends ChangeNotifier {
     final layer = _layers[index];
     if (layer.visible == visible) return;
     layer.visible = visible;
+    isDirty = true;
     notifyListeners();
   }
 
@@ -382,6 +434,120 @@ class EditorController extends ChangeNotifier {
     if (index < 0 || index >= _layers.length) return;
     final layer = _layers[index];
     layer.visible = !layer.visible;
+    isDirty = true;
+    notifyListeners();
+  }
+
+  // --- Projeto: New / Open helpers ---
+  /// Restaura o projeto para o estado padrão (16x16, tile 32x32, layers Ground/Over Ground)
+  void newMap({bool resetFilePath = true}) {
+    tilesX = 16;
+    tilesY = 16;
+    tilePixelWidth = 32;
+    tilePixelHeight = 32;
+    tileSize = 32;
+
+    _layers
+      ..clear()
+      ..add(LayerData(name: 'Ground', width: tilesX, height: tilesY))
+      ..add(LayerData(name: 'Over Ground', width: tilesX, height: tilesY));
+    _selectedLayerIndex = _layers.isEmpty ? -1 : _layers.length - 1;
+
+    _tilesets.clear();
+    selectedTileX = null;
+    selectedTileY = null;
+    currentTool = EditingTool.brush;
+
+    if (resetFilePath) currentFilePath = null;
+    isDirty = false;
+    notifyListeners();
+  }
+
+  /// Aplica um mapa desserializado no estado do editor (v1 esparso)
+  void applySerializedMap(Map<String, dynamic> json, {String? filePath}) {
+    final int schema = (json['schemaVersion'] as int?) ?? 1;
+    if (schema != 1) {
+      throw ArgumentError('Schema não suportado: $schema');
+    }
+
+    final Map<String, dynamic> map = (json['map'] as Map)
+        .cast<String, dynamic>();
+    final Map<String, dynamic> size = (map['size'] as Map)
+        .cast<String, dynamic>();
+    final Map<String, dynamic> tilePx = (map['tilePixelSize'] as Map)
+        .cast<String, dynamic>();
+
+    tilesX = (size['width'] as num).toInt();
+    tilesY = (size['height'] as num).toInt();
+    tilePixelWidth = (tilePx['width'] as num).toDouble();
+    tilePixelHeight = (tilePx['height'] as num).toDouble();
+    tileSize = tilePixelWidth;
+
+    // Layers (esparsos)
+    final List<dynamic> layersJson = (json['layers'] as List<dynamic>);
+    _layers.clear();
+    for (final dynamic l in layersJson) {
+      final Map<String, dynamic> ld = (l as Map).cast<String, dynamic>();
+      final String name = ld['name'] as String;
+      final bool visible = (ld['visible'] as bool?) ?? true;
+      final bool showCollisions = (ld['showCollisions'] as bool?) ?? true;
+      final String? tilesetId = ld['tilesetId'] as String?;
+
+      final layer = LayerData(name: name, width: tilesX, height: tilesY)
+        ..visible = visible
+        ..showCollisions = showCollisions
+        ..tilesetId = tilesetId;
+
+      final List<dynamic>? tilesSparse = ld['tiles'] as List<dynamic>?;
+      if (tilesSparse != null) {
+        for (final dynamic cell in tilesSparse) {
+          final Map<String, dynamic> c = (cell as Map).cast<String, dynamic>();
+          final int x = (c['x'] as num).toInt();
+          final int y = (c['y'] as num).toInt();
+          if (x < 0 || y < 0 || x >= tilesX || y >= tilesY) continue;
+          final int tx = (c['tx'] as num).toInt();
+          final int ty = (c['ty'] as num).toInt();
+          layer.tiles[y][x] = TileRef(tileX: tx, tileY: ty);
+        }
+      }
+
+      final List<dynamic>? collisionsSparse =
+          ld['collisions'] as List<dynamic>?;
+      if (collisionsSparse != null) {
+        for (final dynamic cell in collisionsSparse) {
+          final Map<String, dynamic> c = (cell as Map).cast<String, dynamic>();
+          final int x = (c['x'] as num).toInt();
+          final int y = (c['y'] as num).toInt();
+          if (x < 0 || y < 0 || x >= tilesX || y >= tilesY) continue;
+          layer.collisions[y][x] = true;
+        }
+      }
+
+      _layers.add(layer);
+    }
+    _selectedLayerIndex = _layers.isEmpty ? -1 : _layers.length - 1;
+
+    currentFilePath = filePath;
+    isDirty = false;
+    notifyListeners();
+  }
+
+  /// Retorna true se qualquer layer possui pelo menos um tile preenchido
+  bool hasAnyTilePlaced() {
+    for (final layer in _layers) {
+      for (int y = 0; y < layer.tiles.length; y++) {
+        final row = layer.tiles[y];
+        for (int x = 0; x < row.length; x++) {
+          if (row[x] != null) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  void markSaved(String path) {
+    currentFilePath = path;
+    isDirty = false;
     notifyListeners();
   }
 }

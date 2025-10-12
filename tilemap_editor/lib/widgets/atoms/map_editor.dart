@@ -249,12 +249,13 @@ class _MapEditorPainter extends CustomPainter {
     _drawTiles(canvas, size, controller);
     // Desenha overlay de colisões por layer
     _drawCollisions(canvas, size, controller);
-    final paint = Paint()
-      ..color = gridColor
-      ..style = PaintingStyle.stroke;
-
-    // Desenha o grid
-    canvas.drawPath(_gridPath, paint);
+    // Grid
+    if (controller.showGrid) {
+      final paint = Paint()
+        ..color = gridColor
+        ..style = PaintingStyle.stroke;
+      canvas.drawPath(_gridPath, paint);
+    }
 
     // Destaque do tile sob o mouse
     if (hoverPosition != null) {

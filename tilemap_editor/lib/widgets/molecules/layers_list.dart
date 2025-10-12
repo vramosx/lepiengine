@@ -91,6 +91,8 @@ class _LayersListState extends State<LayersList> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Renderiza da última para a primeira para manter "Over Ground" no topo visual
+                    //for (int i = layers.length - 1; i >= 0; i--)
                     for (int i = 0; i < layers.length; i++)
                       Sortable<String>(
                         key: ValueKey(layers[i].data),
@@ -111,6 +113,7 @@ class _LayersListState extends State<LayersList> {
                           widget.onListChange?.call(layers);
                         },
                         child: InkWell(
+                          // Traduz índice visual invertido para índice lógico original
                           onTap: () => widget.onSelect?.call(i),
                           child: Container(
                             decoration: BoxDecoration(

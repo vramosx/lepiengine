@@ -8,11 +8,13 @@ class TilesetLoadResult {
   final ui.Image image;
   final ImageProvider provider;
   final String filename;
+  final String? path; // caminho absoluto quando selecionado via file picker
 
   const TilesetLoadResult({
     required this.image,
     required this.provider,
     required this.filename,
+    this.path,
   });
 }
 
@@ -33,6 +35,7 @@ Future<TilesetLoadResult?> pickAndDecodeTileset() async {
     image: uiImage,
     provider: MemoryImage(bytes),
     filename: file.name,
+    path: file.path,
   );
 }
 

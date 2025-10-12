@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:lepiengine_tilemap_editor/controllers/version_controller.dart';
+import 'package:lepiengine_tilemap_editor/controllers/editor_controller.dart';
+import 'package:lepiengine_tilemap_editor/services/io_service.dart' as io;
+import 'package:lepiengine_tilemap_editor/widgets/dialogs/confirm_discard_dialog.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class Topbar extends StatefulWidget {
@@ -18,7 +21,7 @@ class _TopbarState extends State<Topbar> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 142,
+      height: 102,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.secondary,
         borderRadius: BorderRadius.circular(10),
@@ -27,16 +30,17 @@ class _TopbarState extends State<Topbar> {
       child: Column(
         children: [
           SizedBox(
-            height: 100,
+            height: 60,
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 spacing: 16,
                 children: [
-                  Image.asset('assets/images/Lepi.png', width: 75),
-                  Column(
+                  Image.asset('assets/images/Lepi.png', width: 36),
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisAlignment: MainAxisAlignment.center,
+                    spacing: 10,
                     children: [
                       Text("LepiEngine - Tilemap Editor").h1,
                       Text(version ?? "").h3,
@@ -72,6 +76,41 @@ class _TopbarState extends State<Topbar> {
                             control: !Platform.isMacOS,
                           ),
                         ),
+                        onPressed: (ctx) {
+                          final controller = EditorScope.of(ctx);
+                          final bool needConfirm =
+                              controller.isDirty ||
+                              controller.hasAnyTilePlaced();
+                          if (needConfirm) {
+                            showDialog<bool>(
+                              context: ctx,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text('Unsaved changes'),
+                                  content: const Text(
+                                    'You have unsaved changes. Continue? This action is irreversible.',
+                                  ),
+                                  actions: [
+                                    OutlineButton(
+                                      child: const Text('Cancel'),
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                    ),
+                                    DestructiveButton(
+                                      child: const Text('Continue'),
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ).then((ok) {
+                              if (ok == true) controller.newMap();
+                            });
+                          } else {
+                            controller.newMap();
+                          }
+                        },
                         child: Text('New').base,
                       ),
                       MenuButton(
@@ -83,6 +122,20 @@ class _TopbarState extends State<Topbar> {
                             control: !Platform.isMacOS,
                           ),
                         ),
+                        onPressed: (ctx) {
+                          final controller = EditorScope.of(ctx);
+                          proceed() {
+                            io.openProject(ctx, controller);
+                          }
+
+                          if (controller.isDirty) {
+                            showConfirmDiscardDialog(ctx).then((ok) {
+                              if (ok == true) proceed();
+                            });
+                          } else {
+                            proceed();
+                          }
+                        },
                         child: Text('Open').base,
                       ),
                       MenuButton(
@@ -94,7 +147,19 @@ class _TopbarState extends State<Topbar> {
                             control: !Platform.isMacOS,
                           ),
                         ),
+                        onPressed: (ctx) {
+                          final controller = EditorScope.of(ctx);
+                          io.saveProject(ctx, controller);
+                        },
                         child: Text('Save').base,
+                      ),
+                      MenuButton(
+                        leading: Icon(LucideIcons.saveAll),
+                        child: Text('Save As...').base,
+                        onPressed: (ctx) {
+                          final controller = EditorScope.of(ctx);
+                          io.saveProjectAs(ctx, controller);
+                        },
                       ),
                       MenuDivider(),
                       MenuButton(
