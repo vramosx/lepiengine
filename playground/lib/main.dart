@@ -17,7 +17,12 @@ class MyGame extends StatefulWidget {
 }
 
 class _MyGameState extends State<MyGame> {
-  String selectedScene = 'TilemapEditor';
+  final sceneGameConfig = {
+    "ShipsBattle": {"width": 1024.0, "height": 768.0},
+    "PlatformGame": {"width": 640.0, "height": 480.0},
+  };
+
+  String selectedScene = 'PlatformGame';
   final platformGame = PlatformGame();
   final animationShowcase = AnimationShowcase();
   final shipsBattle = ShipsBattle();
@@ -66,9 +71,9 @@ class _MyGameState extends State<MyGame> {
             LepiGame(
               scenes: [animationShowcase, platformGame, shipsBattle],
               initialScene: selectedScene,
-              viewportConfig: const ViewportConfig(
-                referenceWidth: 1024,
-                referenceHeight: 768,
+              viewportConfig: ViewportConfig(
+                referenceWidth: sceneGameConfig[selectedScene]!["width"]!,
+                referenceHeight: sceneGameConfig[selectedScene]!["height"]!,
                 mode: ScalingMode.fitHeight,
               ),
             ),

@@ -222,6 +222,7 @@ class _MapEditorPainter extends CustomPainter {
       final tilesetDef = controller.getTilesetById(layer.tilesetId);
       if (tilesetDef == null) continue;
       final tileset = tilesetDef.image;
+      const double dstPad = 0.15;
       for (int y = 0; y < controller.tilesY; y++) {
         for (int x = 0; x < controller.tilesX; x++) {
           final ref = layer.tiles[y][x];
@@ -233,10 +234,10 @@ class _MapEditorPainter extends CustomPainter {
             srcH,
           );
           final Rect dst = Rect.fromLTWH(
-            x * tileSize,
-            y * tileSize,
-            tileSize,
-            tileSize,
+            x * tileSize - dstPad,
+            y * tileSize - dstPad,
+            tileSize + dstPad * 2,
+            tileSize + dstPad * 2,
           );
           canvas.drawImageRect(tileset, src, dst, paint);
         }

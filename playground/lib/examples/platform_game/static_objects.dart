@@ -8,7 +8,7 @@ import 'package:lepiengine_playground/examples/utils/constants.dart';
 Future<SpriteSheet> pointerIdleBuilder = SpriteSheetBuilder.build(
   name: 'PointerIdle',
   imagePath: Constants.pointerIdle,
-  size: Size(64, 64),
+  size: Size(48, 48),
   animations: [
     SpriteAnimation(
       name: 'idle',
@@ -37,7 +37,7 @@ Future<SpriteSheet> playerStartBuilder(Function()? onEnd) =>
     SpriteSheetBuilder.build(
       name: 'PlayerStart',
       imagePath: Constants.appearing,
-      size: Size(96, 96),
+      size: Size(24, 24),
       animations: [
         SpriteAnimation(
           name: 'start',
@@ -64,7 +64,7 @@ Future<SpriteSheet> playerStartBuilder(Function()? onEnd) =>
 Future<SpriteSheet> playerGemBuilder() => SpriteSheetBuilder.buildWithCollider(
   name: 'PlayerGem',
   imagePath: Constants.gem,
-  size: Size(16, 16),
+  size: Size(8, 8),
   isTrigger: true,
   debugColor: Colors.black,
   animations: [
@@ -89,7 +89,7 @@ Future<SpriteSheet> playerMovementSmokeBuilder(Function()? onEnd) =>
     SpriteSheetBuilder.build(
       name: 'PlayerMovementSmoke',
       imagePath: Constants.smoke,
-      size: Size(16, 16),
+      size: Size(8, 8),
       animations: [
         SpriteAnimation(
           name: 'smoke',

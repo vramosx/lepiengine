@@ -16,5 +16,5 @@ class Constants {
   // static const String coinSound = 'sounds/Coin.mp3';
   // static const String hitSound = 'sounds/Hit.mp3';
   static const String gameOverSound = 'sounds/GameOver.mp3';
-  static const String platformTilemap = 'assets/data/platform_tilemap.json';
+  static const String platformTilemap = 'assets/data/tilemap-platform.json';
 }
