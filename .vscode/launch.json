@@ -44,6 +44,26 @@
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
+        },
+        {
+            "name": "tilemap_editor",
+            "cwd": "tilemap_editor",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "tilemap_editor (profile mode)",
+            "cwd": "tilemap_editor",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "tilemap_editor (release mode)",
+            "cwd": "tilemap_editor",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
         }
     ]
 }

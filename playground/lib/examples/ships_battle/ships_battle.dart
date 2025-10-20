@@ -6,7 +6,7 @@ import 'package:lepiengine/engine/core/collider.dart';
 import 'package:lepiengine/main.dart';
 
 class ShipsBattle extends Scene {
-  ShipsBattle({super.name = 'ShipsBattle', super.debugCollisions = false})
+  ShipsBattle({super.name = 'ShipsBattle', super.debugCollisions = true})
     : super(clearColor: Colors.blueAccent);
 
   @override
@@ -100,6 +100,7 @@ class Enemy extends GameObject {
   int bulletCount = 0;
   int maxBulletCount = 1;
   bool attacking = false;
+  bool dead = false;
 
   @override
   void onAdd() {
@@ -131,6 +132,8 @@ class Enemy extends GameObject {
         createExplosionEffect(bullet);
 
         if (life <= 0) {
+          dead = true;
+          active = false;
           SceneManager.instance.current?.remove(this);
         }
       },
@@ -142,6 +145,7 @@ class Enemy extends GameObject {
 
   @override
   void update(double dt) {
+    if (dead) return;
     super.update(dt);
     enemyReactionTimer = math.max(0, enemyReactionTimer - dt);
     if (enemyReactionTimer <= 0) {
@@ -150,16 +154,19 @@ class Enemy extends GameObject {
   }
 
   void enemyReaction() {
+    if (dead) return;
     enemyReactionTimer = enemyReactionInterval;
     ship?.rotateToObject(player!.ship!);
     final distance = ship?.distanceTo(player!.ship!) ?? 0;
     if (distance > 400 && !attacking) {
       Future.delayed(Duration(milliseconds: 1000), () {
+        if (dead) return;
         ship?.forward();
       });
     } else {
       attacking = true;
       Future.delayed(Duration(milliseconds: 8000), () {
+        if (dead) return;
         if (bulletCount < maxBulletCount) {
           ship?.shoot(
             onComplete: () {
@@ -172,6 +179,13 @@ class Enemy extends GameObject {
       });
     }
     // ship?.forward();
+  }
+
+  @override
+  void onRemove() {
+    super.onRemove();
+    dead = true;
+    ship = null;
   }
 }
 

@@ -3,7 +3,6 @@ import 'package:lepiengine/engine/core/viewport.dart';
 import 'package:lepiengine/main.dart';
 import 'package:lepiengine_playground/examples/platform_game/platform_game.dart';
 import 'package:lepiengine_playground/examples/ships_battle/ships_battle.dart';
-import 'package:lepiengine_playground/tilemap_editor/tilemap_editor_screen.dart';
 import 'package:lepiengine_playground/examples/animation_showcase/animation_showcase.dart';
 
 void main() {
@@ -18,7 +17,12 @@ class MyGame extends StatefulWidget {
 }
 
 class _MyGameState extends State<MyGame> {
-  String selectedScene = 'ShipsBattle';
+  final sceneGameConfig = {
+    "ShipsBattle": {"width": 1024.0, "height": 768.0},
+    "PlatformGame": {"width": 640.0, "height": 480.0},
+  };
+
+  String selectedScene = 'PlatformGame';
   final platformGame = PlatformGame();
   final animationShowcase = AnimationShowcase();
   final shipsBattle = ShipsBattle();
@@ -64,17 +68,15 @@ class _MyGameState extends State<MyGame> {
         // ),
         body: Stack(
           children: [
-            selectedScene == 'TilemapEditor'
-                ? const TilemapEditorScreen()
-                : LepiGame(
-                    scenes: [animationShowcase, platformGame, shipsBattle],
-                    initialScene: selectedScene,
-                    viewportConfig: const ViewportConfig(
-                      referenceWidth: 1024,
-                      referenceHeight: 768,
-                      mode: ScalingMode.fitHeight,
-                    ),
-                  ),
+            LepiGame(
+              scenes: [animationShowcase, platformGame, shipsBattle],
+              initialScene: selectedScene,
+              viewportConfig: ViewportConfig(
+                referenceWidth: sceneGameConfig[selectedScene]!["width"]!,
+                referenceHeight: sceneGameConfig[selectedScene]!["height"]!,
+                mode: ScalingMode.fitWidth,
+              ),
+            ),
             if (selectedScene == 'AnimationShowcase') ...[
               // Top bar: botões de funcionalidades e título central
               Positioned(

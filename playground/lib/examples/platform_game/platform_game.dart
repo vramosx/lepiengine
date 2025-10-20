@@ -1,32 +1,47 @@
 import 'dart:ui';
-
-import 'package:flutter/material.dart' show Colors, debugPrint;
-import 'package:lepiengine/engine/animation/animations.dart';
-import 'package:lepiengine/engine/animation/easing.dart';
-import 'package:lepiengine/engine/core/asset_loader.dart';
+import 'package:flutter/material.dart' show Colors;
 import 'package:lepiengine/engine/core/audio_manager.dart';
 import 'package:lepiengine/engine/core/collider.dart';
-import 'package:lepiengine/engine/core/collision_manager.dart';
-import 'package:lepiengine/engine/core/game_object.dart';
-import 'package:lepiengine/engine/core/input_manager.dart';
-import 'package:lepiengine/engine/core/scene.dart';
-import 'package:lepiengine/engine/core/scene_manager.dart';
-import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
-import 'package:lepiengine/engine/game_objects/tilemap.dart';
-import 'package:lepiengine/engine/models/tileset.dart';
+import 'package:lepiengine/main.dart';
+import 'package:lepiengine_playground/examples/platform_game/jumper.dart';
+import 'package:lepiengine_playground/examples/platform_game/platform_map.dart';
+import 'package:lepiengine_playground/examples/platform_game/platform_player.dart';
 import 'package:lepiengine_playground/examples/platform_game/static_objects.dart';
 import 'package:lepiengine_playground/examples/utils/constants.dart';
-import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
+/// Layer name constants to avoid string duplication and typos.
+const String _layerMap = 'map';
+const String _layerStatic = 'static_objects';
+const String _layerEntities = 'entities';
+
+/// Common world positions used across the scene.
+const Offset playerStartPosition = Offset(320, 180);
+const Offset _pointerIdlePosition = Offset(280, 208);
+const Offset _jumperPosition = Offset(400, 216);
+const Offset _obstaclePosition = Offset(490, 220);
+const Offset _winCheckpointPosition = Offset(1232, 200);
+
+/// Predefined gem spawn points to keep scene setup declarative.
+const List<Offset> _gemPositions = <Offset>[
+  Offset(600, 100),
+  Offset(650, 200),
+  Offset(700, 200),
+  Offset(750, 200),
+  Offset(400, 70),
+  Offset(410, 80),
+  Offset(1300, 200),
+];
+
+/// Main platformer example scene demonstrating player, collectibles, hazards,
+/// and a simple checkpoint win animation.
 class PlatformGame extends Scene {
-  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: true);
+  PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
 
   @override
   void onEnter() {
     super.onEnter();
+    // Ensure no background music remains from previous scenes.
     AudioManager.instance.stopAllMusic();
-
-    AudioManager.instance.playMusic(Constants.backgroundMusic);
   }
 
   @override
@@ -34,8 +49,8 @@ class PlatformGame extends Scene {
     super.loadScene();
 
     final platformMap = PlatformMap();
-    add(platformMap, layer: 'map');
-    setLayerOrder("map", 0);
+    add(platformMap, layer: _layerMap);
+    setLayerOrder(_layerMap, 0);
 
     await _loadPointerIdle();
 
@@ -43,476 +58,213 @@ class PlatformGame extends Scene {
 
     await _loadPlayer();
 
-    await _loadGems();
+    await _loadGems(platformMap);
 
-    setLayerOrder("static_objects", 1);
+    await _loadObstacle();
 
-    setLayerOrder("entities", 2);
+    final gameLimit = GameLimit();
+    add(gameLimit);
+
+    await _loadWinCheckpoint();
+
+    setLayerOrder(_layerStatic, 1);
+    setLayerOrder(_layerEntities, 2);
   }
 
-  Future<void> _loadGems() async {
-    final gemsPositions = [
-      const Offset(600, 200),
-      const Offset(650, 200),
-      const Offset(700, 200),
-      const Offset(750, 200),
-      const Offset(200, 200),
-      const Offset(210, 210),
-    ];
-
-    for (var position in gemsPositions) {
+  /// Spawns all collectible gems at predefined positions.
+  Future<void> _loadGems(PlatformMap platformMap) async {
+    for (final position in _gemPositions) {
       final gem = await playerGemBuilder();
       gem.position = position;
       add(gem);
     }
   }
 
+  /// Places a spring-like jumper that boosts the player on contact.
   Future<void> _loadJumper() async {
     final jumperSprite = await AssetLoader.loadImage(Constants.jumper);
     final jumper = Jumper(image: jumperSprite);
-    jumper.position = const Offset(350, 465);
+    jumper.position = _jumperPosition;
     add(jumper);
-
-    final jumper2 = Jumper(image: jumperSprite);
-    jumper2.position = const Offset(1050, 305);
-    add(jumper2);
   }
 
+  /// Adds a small pointer as a visual cue for the player start area.
   Future<void> _loadPointerIdle() async {
-    final pointerIdle = await pointerIdleBuilder;
-    pointerIdle.position = const Offset(100, 450);
-    add(pointerIdle, layer: 'static_objects');
+    final pointerIdle = await buildPointerIdle();
+    pointerIdle.position = _pointerIdlePosition;
+    add(pointerIdle, layer: _layerStatic);
   }
 
+  /// Loads player, shows a short appearing animation, then hands camera control
+  /// to the player character.
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
 
-    final player = Player(image: playerSprite);
-    player.size = const Size(48, 48);
-    player.position = const Offset(250, 400);
+    final player = PlatformPlayer(image: playerSprite);
+    player.size = const Size(24, 24);
+    player.position = playerStartPosition;
 
-    late SpriteSheet playerStart;
+    // Use late final to allow referencing playerStart within the onEnd callback.
+    late final SpriteSheet playerStart;
     playerStart = await playerStartBuilder(() {
-      add(player, layer: 'entities');
+      add(player, layer: _layerEntities);
       player.play('idle');
       camera.follow(player);
       remove(playerStart);
     });
 
-    add(playerStart, layer: 'entities');
-    playerStart.position = const Offset(225, 400);
+    add(playerStart, layer: _layerEntities);
+    playerStart.position = playerStartPosition;
     camera.follow(playerStart);
   }
-}
 
-class PlatformMap extends GameObject {
-  PlatformMap({
-    super.name = 'PlatformMap',
-    super.position = const Offset(0, 0),
-  });
-
-  @override
-  void onAdd() {
-    super.onAdd();
-
-    _loadScene();
+  /// Spawns a moving obstacle that knocks the player back on collision.
+  Future<void> _loadObstacle() async {
+    final obstacleSprite = await AssetLoader.loadImage(Constants.obstacle);
+    final obstacle = Obstacle(image: obstacleSprite);
+    obstacle.position = _obstaclePosition;
+    add(obstacle);
   }
 
-  Future<void> _loadScene() async {
-    await _loadTilemap();
-  }
+  /// Creates the win checkpoint. When the player collides with it, the sprite
+  /// plays a short non-looping 'win' sequence and then switches to a looping
+  /// 'winAnimation' idle.
+  Future<void> _loadWinCheckpoint() async {
+    late final SpriteSheetWithCollider winCheckpoint;
 
-  Future<void> _loadTilemap() async {
-    final platformTilemap = await readJson(Constants.platformTilemap);
-    final backgroundImage = await AssetLoader.loadImage(Constants.background);
-    final backgroundTileset = Tileset(
-      image: backgroundImage,
-      tileWidth: 64,
-      tileHeight: 64,
-    );
-    final tilesetImage = await AssetLoader.loadImage(Constants.tileset);
-    final tileset = Tileset(image: tilesetImage, tileWidth: 16, tileHeight: 16);
-
-    // generate background map
-    final backgroundMap = List.generate(
-      50,
-      (index) => List.generate(50, (index) => 0),
-    );
-
-    final backgroundTilemap = Tilemap(
-      tileset: backgroundTileset,
-      map: backgroundMap,
-      position: const Offset(0, 0),
-    );
-
-    final rawTiles = platformTilemap['tiles'] as List<dynamic>;
-
-    final map = rawTiles
-        .map<List<int>>(
-          (row) => (row as List<dynamic>).map<int>((e) => e as int).toList(),
-        )
-        .toList();
-
-    final solidRawTiles = platformTilemap['collisions'] as List<dynamic>;
-    Set<int> solidTiles = Set.from(solidRawTiles.map<int>((e) => e as int));
-
-    final tilemap = Tilemap(tileset: tileset, map: map, solidTiles: solidTiles);
-    addChild(backgroundTilemap);
-    addChild(tilemap);
-  }
-
-  @override
-  void render(Canvas canvas) {}
-}
-
-class Player extends SpriteSheet with PhysicsBody, CollisionCallbacks {
-  Player({super.name = 'Player', required super.image}) : super() {
-    addAABBCollider(
-      size: Size(30, 42),
-      anchor: ColliderAnchor.bottomCenter,
-      debugColor: Colors.blue,
+    winCheckpoint = await SpriteSheetBuilder.buildWithCollider(
+      name: 'winCheckpoint',
+      imagePath: 'objects/Checkpoint.png',
+      size: const Size(24, 24),
+      isTrigger: true,
+      animations: [
+        SpriteAnimation(
+          name: 'idle',
+          frameSize: const Size(48, 48),
+          frames: [Frame(col: 0, row: 0)],
+        ),
+        SpriteAnimation(
+          name: 'win',
+          frameSize: const Size(48, 48),
+          frames: [
+            Frame(col: 0, row: 0),
+            Frame(col: 1, row: 0),
+            Frame(col: 2, row: 0),
+            Frame(col: 3, row: 0),
+            Frame(col: 4, row: 0),
+            Frame(col: 5, row: 0),
+            Frame(col: 6, row: 0),
+          ],
+          loop: false,
+          onEnd: () {
+            winCheckpoint.play('winAnimation');
+          },
+        ),
+        SpriteAnimation(
+          name: 'winAnimation',
+          frameSize: const Size(48, 48),
+          frames: [
+            Frame(col: 6, row: 0),
+            Frame(col: 5, row: 0),
+            Frame(col: 4, row: 0),
+            Frame(col: 5, row: 0),
+            Frame(col: 6, row: 0),
+          ],
+          loop: true,
+        ),
+      ],
+      initialAnimation: 'idle',
     );
 
-    gravity = 800;
-    maxFallSpeed = 800;
-  }
+    winCheckpoint.position = _winCheckpointPosition;
 
-  bool isGrounded = false;
-  final double moveSpeed = 150.0;
-  final double jumpForce = -350.0;
-  bool isFlipped = false;
-  var smokeCount = 0;
-
-  void flip() {
-    isFlipped = !isFlipped;
-    flipX = !flipX;
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    _handleInput();
-  }
-
-  Future<void> createSmoke(Offset position) async {
-    late SpriteSheet smoke;
-    smoke = await playerMovementSmokeBuilder(() {
-      smokeCount--;
-      SceneManager.instance.current?.remove(smoke);
-    });
-    smoke.position = Offset(position.dx + 32, position.dy + 36);
-    SceneManager.instance.current?.add(smoke, layer: 'static_objects');
-    smokeCount++;
-  }
-
-  void _handleInput() {
-    // Pulo (lógica específica de plataforma)// Pulo (lógica específica de plataforma)
-    final jumpPressed =
-        InputManager.instance.isPressed('KeyW') ||
-        InputManager.instance.isPressed('Arrow Up') ||
-        InputManager.instance.isPressed('Space');
-
-    if (jumpPressed) {
-      if (isGrounded) {
-        AudioManager.instance.playSound('jump.mp3');
-        play('jump');
-        setVelocity(Offset(velocity.dx, jumpForce));
-        isGrounded = false;
-        return;
-      } else {}
-    }
-
-    // Movimento horizontal
-    double horizontal = 0.0;
-    if (InputManager.instance.isPressed('KeyA') ||
-        InputManager.instance.isPressed('Arrow Left')) {
-      if (smokeCount < 1 && isGrounded) {
-        createSmoke(Offset(position.dx - 10, position.dy));
-      }
-
-      horizontal = -1.0;
-      play('run');
-      if (!isFlipped) {
-        flip();
-      }
-    }
-    if (InputManager.instance.isPressed('KeyD') ||
-        InputManager.instance.isPressed('Arrow Right')) {
-      if (smokeCount < 1 && isGrounded) {
-        createSmoke(Offset(position.dx - 10, position.dy));
-      }
-
-      horizontal = 1.0;
-      play('run');
-      if (isFlipped) {
-        flip();
-      }
-    }
-
-    // Movimento normal
-    setVelocity(Offset(horizontal * moveSpeed, velocity.dy));
-
-    if (isGrounded && horizontal == 0) {
-      play('idle');
-    }
-  }
-
-  @override
-  void onCollisionEnter(GameObject other, CollisionInfo collision) {
-    debugPrint(
-      'Collision enter: ${other.runtimeType} - Normal: ${collision.normal}',
-    );
-
-    // Removido: não marca grounded só por colidir com Tilemap; usa lado.
-
-    if (collision.selfSide == CollisionSide.bottom) {
-    } else if (collision.selfSide == CollisionSide.top) {
-      debugPrint("collision top: ${collision.selfSide}");
-    } else if (collision.selfSide == CollisionSide.left) {
-      debugPrint("collision left: ${collision.selfSide}");
-    } else if (collision.selfSide == CollisionSide.right) {
-      debugPrint("collision right: ${collision.selfSide}");
-    }
-
-    if (collision.selfSide == CollisionSide.bottom) {
-      if (other is Jumper) {
-        SceneManager.instance.current?.camera.lightShake();
-        setVelocity(Offset(velocity.dx, jumpForce * 2));
-        isGrounded = false;
-      }
-    }
-
-    if (collision.selfSide == CollisionSide.left &&
-        currentAnimation?.name != 'wallJump') {
-      if (!isFlipped) {
-        flip();
-      }
-      play('wallJump');
-    } else if (collision.selfSide == CollisionSide.right &&
-        currentAnimation?.name != 'wallJump') {
-      if (isFlipped) {
-        flip();
-      }
-      play('wallJump');
-    }
-  }
-
-  @override
-  void onCollisionStay(GameObject other, CollisionInfo collision) {
-    if (collision.selfSide == CollisionSide.bottom &&
-        other.name == 'PlayerGem') {
-      SceneManager.instance.current?.remove(other);
-      return;
-    } else if (collision.selfSide == CollisionSide.bottom &&
-        other.name != 'PlayerGem') {
-      isGrounded = true;
-      // Zera somente a componente vertical para não matar o movimento horizontal
-      setVelocity(Offset(velocity.dx, 0));
-    }
-  }
-
-  @override
-  void onAdd() {
-    super.onAdd();
-    final playerGetArea = PlayerGetArea.withPlayer(this);
-    attachObject(playerGetArea, const Offset(24, 24));
-    var row = 0;
-    addAnimation(
-      SpriteAnimation(
-        name: 'run',
-        frameSize: Size(32, 32),
-        frames: [
-          Frame(col: 0, row: row),
-          Frame(col: 1, row: row),
-          Frame(col: 2, row: row),
-          Frame(col: 3, row: row),
-          Frame(col: 4, row: row),
-          Frame(col: 5, row: row),
-          Frame(col: 6, row: row),
-          Frame(col: 7, row: row),
-          Frame(col: 8, row: row),
-          Frame(col: 9, row: row),
-          Frame(col: 10, row: row),
-          Frame(col: 11, row: row),
-        ],
-      ),
-    );
-
-    row = 1;
-    addAnimation(
-      SpriteAnimation(
-        name: 'hit',
-        frameSize: Size(32, 32),
-        frames: [
-          Frame(col: 0, row: row),
-          Frame(col: 1, row: row),
-          Frame(col: 2, row: row),
-          Frame(col: 3, row: row),
-          Frame(col: 4, row: row),
-          Frame(col: 5, row: row),
-          Frame(col: 6, row: row),
-        ],
-      ),
-    );
-
-    row = 2;
-    addAnimation(
-      SpriteAnimation(
-        name: 'doubleJump',
-        frameSize: Size(32, 32),
-        frames: [
-          Frame(col: 0, row: row),
-          Frame(col: 1, row: row),
-          Frame(col: 2, row: row),
-          Frame(col: 3, row: row),
-          Frame(col: 4, row: row),
-          Frame(col: 5, row: row),
-        ],
-      ),
-    );
-
-    row = 3;
-    addAnimation(
-      SpriteAnimation(
-        name: 'idle',
-        frameSize: Size(32, 32),
-        frames: [
-          Frame(col: 0, row: row),
-          Frame(col: 1, row: row),
-          Frame(col: 2, row: row),
-          Frame(col: 3, row: row),
-          Frame(col: 4, row: row),
-          Frame(col: 5, row: row),
-          Frame(col: 6, row: row),
-          Frame(col: 7, row: row),
-          Frame(col: 8, row: row),
-          Frame(col: 9, row: row),
-          Frame(col: 10, row: row),
-        ],
-      ),
-    );
-
-    row = 4;
-    addAnimation(
-      SpriteAnimation(
-        name: 'wallJump',
-        frameSize: Size(32, 32),
-        frames: [
-          Frame(col: 0, row: row),
-          Frame(col: 1, row: row),
-          Frame(col: 2, row: row),
-          Frame(col: 3, row: row),
-          Frame(col: 4, row: row),
-        ],
-      ),
-    );
-
-    row = 5;
-    addAnimation(
-      SpriteAnimation(
-        name: 'jump',
-        frameSize: Size(32, 32),
-        frames: [Frame(col: 0, row: row)],
-      ),
-    );
-
-    row = 6;
-    addAnimation(
-      SpriteAnimation(
-        name: 'fall',
-        frameSize: Size(32, 32),
-        frames: [Frame(col: 0, row: row)],
-      ),
-    );
+    add(winCheckpoint);
   }
 }
 
-class Jumper extends SpriteSheet with CollisionCallbacks {
-  Jumper({
-    super.name = 'Jumper',
+/// Simple obstacle with a circular collider that applies knockback to the
+/// player and triggers a brief tint effect.
+class Obstacle extends SpriteSheet with CollisionCallbacks {
+  Obstacle({
+    super.name = 'Obstacle',
     required super.image,
-    super.size = const Size(48, 48),
+    super.size = const Size(32, 32),
   }) : super() {
-    addAABBCollider(
-      size: Size(48, 16),
-      anchor: ColliderAnchor.bottomCenter,
-      debugColor: Colors.green,
-    );
+    addCircleCollider(radius: 10);
 
     addAnimation(
       SpriteAnimation(
-        name: 'idle',
-        frameSize: Size(48, 48),
-        frames: [Frame(col: 0, row: 0)],
-      ),
-    );
-
-    addAnimation(
-      SpriteAnimation(
-        name: 'jump',
-        frameSize: Size(48, 48),
+        name: 'running',
+        frameSize: const Size(48, 48),
         frames: [
+          Frame(col: 0, row: 0),
+          Frame(col: 0, row: 0),
+          Frame(col: 0, row: 0),
+          Frame(col: 0, row: 0),
+          Frame(col: 0, row: 0),
+          Frame(col: 0, row: 0),
+          Frame(col: 1, row: 0),
           Frame(col: 2, row: 0),
+          Frame(col: 3, row: 0),
+          Frame(col: 4, row: 0),
+          Frame(col: 5, row: 0),
+          Frame(col: 3, row: 0),
+          Frame(col: 4, row: 0),
+          Frame(col: 5, row: 0),
           Frame(col: 3, row: 0),
           Frame(col: 4, row: 0),
           Frame(col: 5, row: 0),
           Frame(col: 6, row: 0),
         ],
-        frameDuration: 0.05,
-        loop: false,
-        onEnd: () {
-          play('idle');
-        },
       ),
     );
-  }
 
-  @override
-  void onAdd() {
-    super.onAdd();
-    play('idle');
+    play('running');
   }
 
   @override
   void onCollisionEnter(GameObject other, CollisionInfo collision) {
     super.onCollisionEnter(other, collision);
-    if (collision.selfSide == CollisionSide.top && other is Player) {
-      play('jump');
-      AudioManager.instance.playSound('spring.mp3');
+    if (other is PlatformPlayer) {
+      Animations.blink(
+        other,
+        Colors.red,
+        30,
+        0.2,
+        onComplete: () {
+          other.tintColor = null;
+        },
+      );
+
+      other.applyKnockback(
+        sourcePosition: worldPivot,
+        horizontalForce: 250.0,
+        verticalImpulse: -200.0,
+        duration: 0.25,
+      );
     }
   }
 }
 
-class PlayerGetArea extends GameObject with CollisionCallbacks {
-  PlayerGetArea(this.player, {super.name = 'PlayerGetArea'}) : super() {
-    addCircleCollider(radius: 80, isTrigger: true, debugColor: Colors.orange);
-  }
-
-  final Player player;
-
-  PlayerGetArea.withPlayer(this.player) : super() {
-    addCircleCollider(radius: 80, isTrigger: true, debugColor: Colors.orange);
+/// Horizontal world limit. When the player falls out of bounds, reset
+/// their position to the start point.
+class GameLimit extends GameObject with CollisionCallbacks {
+  GameLimit({
+    super.position = const Offset(480, 432),
+    super.size = const Size(520, 10),
+  }) : super() {
+    addAABBCollider(
+      size: const Size(520, 10),
+      isTrigger: true,
+      debugColor: Colors.blue,
+    );
   }
 
   @override
   void onCollisionEnter(GameObject other, CollisionInfo collision) {
     super.onCollisionEnter(other, collision);
-
-    if (other.name == 'PlayerGem') {
-      Animations.moveTo(
-        other,
-        Offset(player.position.dx + 24, player.position.dy + 24),
-        0.2,
-        ease: EasingType.easeIn,
-        onComplete: () {
-          SceneManager.instance.current?.remove(other);
-        },
-      );
-      AudioManager.instance.playSound('coin.mp3');
-      return;
+    if (other is PlatformPlayer) {
+      other.position = playerStartPosition;
     }
   }
-
-  @override
-  void render(Canvas canvas) {}
 }

@@ -1,0 +1,326 @@
+import 'dart:ui';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart' show Colors, debugPrint;
+import 'package:lepiengine/engine/core/audio_manager.dart';
+import 'package:lepiengine/engine/core/collider.dart';
+import 'package:lepiengine/engine/core/collision_manager.dart';
+import 'package:lepiengine/engine/core/game_object.dart';
+import 'package:lepiengine/engine/core/input_manager.dart';
+import 'package:lepiengine/engine/core/scene_manager.dart';
+import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
+import 'package:lepiengine_playground/examples/platform_game/jumper.dart';
+import 'package:lepiengine_playground/examples/platform_game/player_get_area.dart';
+import 'package:lepiengine_playground/examples/platform_game/static_objects.dart';
+
+/// Platformer player character with basic movement, jumping, collisions,
+/// and simple visual effects.
+class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
+  PlatformPlayer({super.name = 'Player', required super.image}) : super() {
+    addAABBCollider(
+      size: Size(12, 18),
+      anchor: ColliderAnchor.bottomCenter,
+      debugColor: Colors.blue,
+    );
+
+    gravity = 400;
+    maxFallSpeed = 400;
+  }
+
+  // Movement state
+  bool isGrounded = false;
+  final double moveSpeed = 80.0;
+  final double jumpForce = -200.0;
+
+  // Visual state
+  bool isFlipped = false;
+  int activeSmokeCount = 0;
+
+  // Knockback state
+  bool isKnockback = false;
+  double _knockbackTimer = 0.0;
+
+  void flip() {
+    isFlipped = !isFlipped;
+    flipX = !flipX;
+  }
+
+  /// Applies a short knockback impulse from [sourcePosition]. The horizontal
+  /// component follows the normalized direction from source to the player.
+  void applyKnockback({
+    required Offset sourcePosition,
+    double horizontalForce = 200.0,
+    double verticalImpulse = -150.0,
+    double duration = 0.2,
+  }) {
+    // Direção do obstáculo -> jogador em world space
+    final Offset dir = worldPivot - sourcePosition;
+    final double len2 = dir.dx * dir.dx + dir.dy * dir.dy;
+    final double invLen = len2 > 1e-8 ? 1.0 / math.sqrt(len2) : 0.0;
+    final Offset norm = invLen > 0
+        ? Offset(dir.dx * invLen, dir.dy * invLen)
+        : const Offset(1, 0);
+
+    // Apply impulse and switch to knockback state
+    setVelocity(Offset(norm.dx * horizontalForce, verticalImpulse));
+    isKnockback = true;
+    _knockbackTimer = duration;
+    isGrounded = false;
+    play('hit');
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (isKnockback) {
+      _knockbackTimer -= dt;
+      if (_knockbackTimer <= 0) {
+        isKnockback = false;
+      }
+      return;
+    }
+
+    _handleInput();
+  }
+
+  /// Creates a short-lived smoke effect near the player's feet.
+  Future<void> createSmoke(Offset position) async {
+    late final SpriteSheet smoke;
+    smoke = await playerMovementSmokeBuilder(() {
+      activeSmokeCount--;
+      SceneManager.instance.current?.remove(smoke);
+    });
+    smoke.position = Offset(position.dx + 16, position.dy + 16);
+    SceneManager.instance.current?.add(smoke, layer: 'static_objects');
+    activeSmokeCount++;
+  }
+
+  /// Handles input for jumping and horizontal movement.
+  void _handleInput() {
+    // Jump input (platformer-specific logic)
+    final jumpPressed =
+        InputManager.instance.isPressed('KeyW') ||
+        InputManager.instance.isPressed('Arrow Up') ||
+        InputManager.instance.isPressed('Space');
+
+    if (jumpPressed) {
+      if (isGrounded) {
+        AudioManager.instance.playSound('jump.mp3');
+        play('jump');
+        setVelocity(Offset(velocity.dx, jumpForce));
+        isGrounded = false;
+        return;
+      }
+    }
+
+    // Movimento horizontal
+    double horizontal = 0.0;
+    if (InputManager.instance.isPressed('KeyA') ||
+        InputManager.instance.isPressed('Arrow Left')) {
+      if (activeSmokeCount < 1 && isGrounded) {
+        createSmoke(Offset(position.dx - 10, position.dy));
+      }
+
+      horizontal = -1.0;
+      play('run');
+      if (!isFlipped) {
+        flip();
+      }
+    }
+    if (InputManager.instance.isPressed('KeyD') ||
+        InputManager.instance.isPressed('Arrow Right')) {
+      if (activeSmokeCount < 1 && isGrounded) {
+        createSmoke(Offset(position.dx - 10, position.dy));
+      }
+
+      horizontal = 1.0;
+      play('run');
+      if (isFlipped) {
+        flip();
+      }
+    }
+
+    // Movimento normal
+    setVelocity(Offset(horizontal * moveSpeed, velocity.dy));
+
+    if (isGrounded && horizontal == 0) {
+      play('idle');
+    }
+  }
+
+  @override
+  void onCollisionEnter(GameObject other, CollisionInfo collision) {
+    debugPrint(
+      'Collision enter: ${other.runtimeType} - Normal: ${collision.normal}',
+    );
+
+    if (other.name == 'winCheckpoint') {
+      (other as SpriteSheetWithCollider).play('win');
+    }
+
+    // Removido: não marca grounded só por colidir com Tilemap; usa lado.
+
+    if (collision.selfSide == CollisionSide.bottom) {
+    } else if (collision.selfSide == CollisionSide.top) {
+      debugPrint('collision top: ${collision.selfSide}');
+    } else if (collision.selfSide == CollisionSide.left) {
+      debugPrint('collision left: ${collision.selfSide}');
+    } else if (collision.selfSide == CollisionSide.right) {
+      debugPrint('collision right: ${collision.selfSide}');
+    }
+
+    if (collision.selfSide == CollisionSide.bottom) {
+      if (other is Jumper) {
+        SceneManager.instance.current?.camera.lightShake();
+        setVelocity(Offset(velocity.dx, jumpForce * 2));
+        isGrounded = false;
+      }
+    }
+
+    if (collision.selfSide == CollisionSide.left &&
+        currentAnimation?.name != 'wallJump') {
+      if (!isFlipped) {
+        flip();
+      }
+      play('wallJump');
+    } else if (collision.selfSide == CollisionSide.right &&
+        currentAnimation?.name != 'wallJump') {
+      if (isFlipped) {
+        flip();
+      }
+      play('wallJump');
+    }
+  }
+
+  @override
+  void onCollisionStay(GameObject other, CollisionInfo collision) {
+    if (collision.selfSide == CollisionSide.bottom) {
+      if (other.name == 'PlayerGem') {
+        SceneManager.instance.current?.remove(other);
+        return;
+      }
+      if (other.name != 'PlayerGetArea') {
+        isGrounded = true;
+        // Zero out only the vertical component to preserve horizontal motion
+        setVelocity(Offset(velocity.dx, 0));
+      }
+    }
+  }
+
+  @override
+  void onAdd() {
+    super.onAdd();
+    // Attach a circular trigger used to collect nearby items.
+    final playerGetArea = PlayerGetArea(this);
+    attachObject(playerGetArea, const Offset(12, 12));
+    int row = 0;
+    // Run animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'run',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+          Frame(col: 6, row: row),
+          Frame(col: 7, row: row),
+          Frame(col: 8, row: row),
+          Frame(col: 9, row: row),
+          Frame(col: 10, row: row),
+          Frame(col: 11, row: row),
+        ],
+      ),
+    );
+
+    row = 1; // Hit reaction animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'hit',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+          Frame(col: 6, row: row),
+        ],
+      ),
+    );
+
+    row = 2; // Double jump animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'doubleJump',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+        ],
+      ),
+    );
+
+    row = 3; // Idle animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'idle',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+          Frame(col: 5, row: row),
+          Frame(col: 6, row: row),
+          Frame(col: 7, row: row),
+          Frame(col: 8, row: row),
+          Frame(col: 9, row: row),
+          Frame(col: 10, row: row),
+        ],
+      ),
+    );
+
+    row = 4; // Wall jump (cling) animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'wallJump',
+        frameSize: Size(32, 32),
+        frames: [
+          Frame(col: 0, row: row),
+          Frame(col: 1, row: row),
+          Frame(col: 2, row: row),
+          Frame(col: 3, row: row),
+          Frame(col: 4, row: row),
+        ],
+      ),
+    );
+
+    row = 5; // Jump start animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'jump',
+        frameSize: Size(32, 32),
+        frames: [Frame(col: 0, row: row)],
+      ),
+    );
+
+    row = 6; // Falling animation
+    addAnimation(
+      SpriteAnimation(
+        name: 'fall',
+        frameSize: Size(32, 32),
+        frames: [Frame(col: 0, row: row)],
+      ),
+    );
+  }
+}

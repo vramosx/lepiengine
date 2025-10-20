@@ -135,15 +135,26 @@ class Scene {
     }
   }
 
+  /// Remove todos os colliders de um objeto e seus filhos recursivamente
+  void _unregisterCollidersRecursively(GameObject obj) {
+    // Remove colliders do objeto atual
+    for (final collider in obj.colliders) {
+      collisionManager.removeCollider(collider);
+    }
+
+    // Remove colliders dos filhos recursivamente
+    for (final child in obj.children) {
+      _unregisterCollidersRecursively(child);
+    }
+  }
+
   /// Remove um objeto (varre todas as camadas).
   bool remove(GameObject obj) {
     for (final l in _layers.values) {
       final removed = l.remove(obj);
       if (removed) {
-        // Remove todos os colliders do objeto do sistema de colisão
-        for (final collider in obj.colliders) {
-          collisionManager.removeCollider(collider);
-        }
+        // Remove todos os colliders do objeto e de seus filhos do sistema de colisão
+        _unregisterCollidersRecursively(obj);
         // Limpa o callback
         obj.setColliderAddedCallback(null);
         obj.onRemove();
@@ -169,10 +180,8 @@ class Scene {
   void clearAll() {
     for (final l in _layers.values) {
       for (final obj in l.objects) {
-        // Remove todos os colliders do objeto
-        for (final collider in obj.colliders) {
-          collisionManager.removeCollider(collider);
-        }
+        // Remove todos os colliders do objeto e filhos
+        _unregisterCollidersRecursively(obj);
         obj.onRemove();
       }
       l.clear();
@@ -184,10 +193,8 @@ class Scene {
     final l = _layers[layer];
     if (l != null) {
       for (final obj in l.objects) {
-        // Remove todos os colliders do objeto
-        for (final collider in obj.colliders) {
-          collisionManager.removeCollider(collider);
-        }
+        // Remove todos os colliders do objeto e filhos
+        _unregisterCollidersRecursively(obj);
         obj.onRemove();
       }
       l.clear();
