@@ -8,6 +8,7 @@ import 'package:lepiengine/engine/core/game_object.dart';
 import 'package:lepiengine/engine/core/scene_manager.dart';
 import 'package:lepiengine_playground/examples/platform_game/platform_player.dart';
 
+/// Circular trigger attached to the player used to collect nearby items.
 class PlayerGetArea extends GameObject with CollisionCallbacks {
   PlayerGetArea(this.player, {super.name = 'PlayerGetArea'}) : super() {
     addCircleCollider(radius: 20, isTrigger: true, debugColor: Colors.orange);
@@ -15,16 +16,12 @@ class PlayerGetArea extends GameObject with CollisionCallbacks {
 
   final PlatformPlayer player;
 
-  PlayerGetArea.withPlayer(this.player, {super.name = 'PlayerGetArea'})
-    : super() {
-    addCircleCollider(radius: 20, isTrigger: true, debugColor: Colors.orange);
-  }
-
   @override
   void onCollisionEnter(GameObject other, CollisionInfo collision) {
     super.onCollisionEnter(other, collision);
 
     if (other.name == 'PlayerGem') {
+      // Pull the gem toward the player, then remove it once reached.
       Animations.moveTo(
         other,
         Offset(player.position.dx + 24, player.position.dy + 24),

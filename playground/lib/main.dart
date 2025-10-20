@@ -74,7 +74,7 @@ class _MyGameState extends State<MyGame> {
               viewportConfig: ViewportConfig(
                 referenceWidth: sceneGameConfig[selectedScene]!["width"]!,
                 referenceHeight: sceneGameConfig[selectedScene]!["height"]!,
-                mode: ScalingMode.fitHeight,
+                mode: ScalingMode.fitWidth,
               ),
             ),
             if (selectedScene == 'AnimationShowcase') ...[

@@ -9,17 +9,39 @@ import 'package:lepiengine_playground/examples/platform_game/platform_player.dar
 import 'package:lepiengine_playground/examples/platform_game/static_objects.dart';
 import 'package:lepiengine_playground/examples/utils/constants.dart';
 
-Offset playerStartPosition = const Offset(320, 180);
+/// Layer name constants to avoid string duplication and typos.
+const String _layerMap = 'map';
+const String _layerStatic = 'static_objects';
+const String _layerEntities = 'entities';
 
+/// Common world positions used across the scene.
+const Offset playerStartPosition = Offset(320, 180);
+const Offset _pointerIdlePosition = Offset(280, 208);
+const Offset _jumperPosition = Offset(400, 216);
+const Offset _obstaclePosition = Offset(490, 220);
+const Offset _winCheckpointPosition = Offset(1232, 200);
+
+/// Predefined gem spawn points to keep scene setup declarative.
+const List<Offset> _gemPositions = <Offset>[
+  Offset(600, 100),
+  Offset(650, 200),
+  Offset(700, 200),
+  Offset(750, 200),
+  Offset(400, 70),
+  Offset(410, 80),
+  Offset(1300, 200),
+];
+
+/// Main platformer example scene demonstrating player, collectibles, hazards,
+/// and a simple checkpoint win animation.
 class PlatformGame extends Scene {
   PlatformGame({super.name = 'PlatformGame'}) : super(debugCollisions: false);
 
   @override
   void onEnter() {
     super.onEnter();
+    // Ensure no background music remains from previous scenes.
     AudioManager.instance.stopAllMusic();
-
-    // AudioManager.instance.playMusic(Constants.backgroundMusic);
   }
 
   @override
@@ -27,8 +49,8 @@ class PlatformGame extends Scene {
     super.loadScene();
 
     final platformMap = PlatformMap();
-    add(platformMap, layer: 'map');
-    setLayerOrder("map", 0);
+    add(platformMap, layer: _layerMap);
+    setLayerOrder(_layerMap, 0);
 
     await _loadPointerIdle();
 
@@ -45,41 +67,36 @@ class PlatformGame extends Scene {
 
     await _loadWinCheckpoint();
 
-    setLayerOrder("static_objects", 1);
-    setLayerOrder("entities", 2);
+    setLayerOrder(_layerStatic, 1);
+    setLayerOrder(_layerEntities, 2);
   }
 
+  /// Spawns all collectible gems at predefined positions.
   Future<void> _loadGems(PlatformMap platformMap) async {
-    final gemsPositions = [
-      const Offset(600, 100),
-      const Offset(650, 200),
-      const Offset(700, 200),
-      const Offset(750, 200),
-      const Offset(400, 70),
-      const Offset(410, 80),
-      const Offset(1300, 200),
-    ];
-
-    for (var position in gemsPositions) {
+    for (final position in _gemPositions) {
       final gem = await playerGemBuilder();
       gem.position = position;
       add(gem);
     }
   }
 
+  /// Places a spring-like jumper that boosts the player on contact.
   Future<void> _loadJumper() async {
     final jumperSprite = await AssetLoader.loadImage(Constants.jumper);
     final jumper = Jumper(image: jumperSprite);
-    jumper.position = const Offset(400, 216);
+    jumper.position = _jumperPosition;
     add(jumper);
   }
 
+  /// Adds a small pointer as a visual cue for the player start area.
   Future<void> _loadPointerIdle() async {
-    final pointerIdle = await pointerIdleBuilder;
-    pointerIdle.position = const Offset(280, 192);
-    add(pointerIdle, layer: 'static_objects');
+    final pointerIdle = await buildPointerIdle();
+    pointerIdle.position = _pointerIdlePosition;
+    add(pointerIdle, layer: _layerStatic);
   }
 
+  /// Loads player, shows a short appearing animation, then hands camera control
+  /// to the player character.
   Future<void> _loadPlayer() async {
     final playerSprite = await AssetLoader.loadImage(Constants.character);
 
@@ -87,43 +104,48 @@ class PlatformGame extends Scene {
     player.size = const Size(24, 24);
     player.position = playerStartPosition;
 
-    late SpriteSheet playerStart;
+    // Use late final to allow referencing playerStart within the onEnd callback.
+    late final SpriteSheet playerStart;
     playerStart = await playerStartBuilder(() {
-      add(player, layer: 'entities');
+      add(player, layer: _layerEntities);
       player.play('idle');
       camera.follow(player);
       remove(playerStart);
     });
 
-    add(playerStart, layer: 'entities');
-    playerStart.position = const Offset(320, 180);
+    add(playerStart, layer: _layerEntities);
+    playerStart.position = playerStartPosition;
     camera.follow(playerStart);
   }
 
+  /// Spawns a moving obstacle that knocks the player back on collision.
   Future<void> _loadObstacle() async {
     final obstacleSprite = await AssetLoader.loadImage(Constants.obstacle);
     final obstacle = Obstacle(image: obstacleSprite);
-    obstacle.position = const Offset(490, 220);
+    obstacle.position = _obstaclePosition;
     add(obstacle);
   }
 
+  /// Creates the win checkpoint. When the player collides with it, the sprite
+  /// plays a short non-looping 'win' sequence and then switches to a looping
+  /// 'winAnimation' idle.
   Future<void> _loadWinCheckpoint() async {
     late final SpriteSheetWithCollider winCheckpoint;
 
     winCheckpoint = await SpriteSheetBuilder.buildWithCollider(
-      name: "winCheckpoint",
-      imagePath: "objects/Checkpoint.png",
-      size: Size(24, 24),
+      name: 'winCheckpoint',
+      imagePath: 'objects/Checkpoint.png',
+      size: const Size(24, 24),
       isTrigger: true,
       animations: [
         SpriteAnimation(
-          name: "idle",
-          frameSize: Size(48, 48),
+          name: 'idle',
+          frameSize: const Size(48, 48),
           frames: [Frame(col: 0, row: 0)],
         ),
         SpriteAnimation(
-          name: "win",
-          frameSize: Size(48, 48),
+          name: 'win',
+          frameSize: const Size(48, 48),
           frames: [
             Frame(col: 0, row: 0),
             Frame(col: 1, row: 0),
@@ -135,12 +157,12 @@ class PlatformGame extends Scene {
           ],
           loop: false,
           onEnd: () {
-            winCheckpoint.play("winAnimation");
+            winCheckpoint.play('winAnimation');
           },
         ),
         SpriteAnimation(
-          name: "winAnimation",
-          frameSize: Size(48, 48),
+          name: 'winAnimation',
+          frameSize: const Size(48, 48),
           frames: [
             Frame(col: 6, row: 0),
             Frame(col: 5, row: 0),
@@ -154,12 +176,14 @@ class PlatformGame extends Scene {
       initialAnimation: 'idle',
     );
 
-    winCheckpoint.position = Offset(1232, 200);
+    winCheckpoint.position = _winCheckpointPosition;
 
     add(winCheckpoint);
   }
 }
 
+/// Simple obstacle with a circular collider that applies knockback to the
+/// player and triggers a brief tint effect.
 class Obstacle extends SpriteSheet with CollisionCallbacks {
   Obstacle({
     super.name = 'Obstacle',
@@ -170,8 +194,8 @@ class Obstacle extends SpriteSheet with CollisionCallbacks {
 
     addAnimation(
       SpriteAnimation(
-        name: "running",
-        frameSize: Size(48, 48),
+        name: 'running',
+        frameSize: const Size(48, 48),
         frames: [
           Frame(col: 0, row: 0),
           Frame(col: 0, row: 0),
@@ -195,7 +219,7 @@ class Obstacle extends SpriteSheet with CollisionCallbacks {
       ),
     );
 
-    play("running");
+    play('running');
   }
 
   @override
@@ -222,13 +246,15 @@ class Obstacle extends SpriteSheet with CollisionCallbacks {
   }
 }
 
+/// Horizontal world limit. When the player falls out of bounds, reset
+/// their position to the start point.
 class GameLimit extends GameObject with CollisionCallbacks {
   GameLimit({
     super.position = const Offset(480, 432),
     super.size = const Size(520, 10),
   }) : super() {
     addAABBCollider(
-      size: Size(520, 10),
+      size: const Size(520, 10),
       isTrigger: true,
       debugColor: Colors.blue,
     );

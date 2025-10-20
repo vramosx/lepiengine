@@ -6,6 +6,7 @@ import 'package:lepiengine/engine/core/game_object.dart';
 import 'package:lepiengine/engine/game_objects/sprite_sheet.dart';
 import 'package:lepiengine_playground/examples/platform_game/platform_player.dart';
 
+/// A spring pad that bounces the player upwards when landed on.
 class Jumper extends SpriteSheet with CollisionCallbacks {
   Jumper({
     super.name = 'Jumper',
@@ -55,6 +56,7 @@ class Jumper extends SpriteSheet with CollisionCallbacks {
   @override
   void onCollisionEnter(GameObject other, CollisionInfo collision) {
     super.onCollisionEnter(other, collision);
+    // Trigger bounce only when the player's bottom hits the jumper's top.
     if (collision.selfSide == CollisionSide.top && other is PlatformPlayer) {
       play('jump');
       AudioManager.instance.playSound('spring.mp3');

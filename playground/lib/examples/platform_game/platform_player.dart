@@ -13,6 +13,8 @@ import 'package:lepiengine_playground/examples/platform_game/jumper.dart';
 import 'package:lepiengine_playground/examples/platform_game/player_get_area.dart';
 import 'package:lepiengine_playground/examples/platform_game/static_objects.dart';
 
+/// Platformer player character with basic movement, jumping, collisions,
+/// and simple visual effects.
 class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   PlatformPlayer({super.name = 'Player', required super.image}) : super() {
     addAABBCollider(
@@ -25,11 +27,16 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     maxFallSpeed = 400;
   }
 
+  // Movement state
   bool isGrounded = false;
   final double moveSpeed = 80.0;
   final double jumpForce = -200.0;
+
+  // Visual state
   bool isFlipped = false;
-  var smokeCount = 0;
+  int activeSmokeCount = 0;
+
+  // Knockback state
   bool isKnockback = false;
   double _knockbackTimer = 0.0;
 
@@ -38,6 +45,8 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     flipX = !flipX;
   }
 
+  /// Applies a short knockback impulse from [sourcePosition]. The horizontal
+  /// component follows the normalized direction from source to the player.
   void applyKnockback({
     required Offset sourcePosition,
     double horizontalForce = 200.0,
@@ -52,7 +61,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
         ? Offset(dir.dx * invLen, dir.dy * invLen)
         : const Offset(1, 0);
 
-    // Aplica impulso e estado de knockback
+    // Apply impulse and switch to knockback state
     setVelocity(Offset(norm.dx * horizontalForce, verticalImpulse));
     isKnockback = true;
     _knockbackTimer = duration;
@@ -74,19 +83,21 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     _handleInput();
   }
 
+  /// Creates a short-lived smoke effect near the player's feet.
   Future<void> createSmoke(Offset position) async {
-    late SpriteSheet smoke;
+    late final SpriteSheet smoke;
     smoke = await playerMovementSmokeBuilder(() {
-      smokeCount--;
+      activeSmokeCount--;
       SceneManager.instance.current?.remove(smoke);
     });
     smoke.position = Offset(position.dx + 16, position.dy + 16);
     SceneManager.instance.current?.add(smoke, layer: 'static_objects');
-    smokeCount++;
+    activeSmokeCount++;
   }
 
+  /// Handles input for jumping and horizontal movement.
   void _handleInput() {
-    // Pulo (lógica específica de plataforma)// Pulo (lógica específica de plataforma)
+    // Jump input (platformer-specific logic)
     final jumpPressed =
         InputManager.instance.isPressed('KeyW') ||
         InputManager.instance.isPressed('Arrow Up') ||
@@ -99,14 +110,14 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
         setVelocity(Offset(velocity.dx, jumpForce));
         isGrounded = false;
         return;
-      } else {}
+      }
     }
 
     // Movimento horizontal
     double horizontal = 0.0;
     if (InputManager.instance.isPressed('KeyA') ||
         InputManager.instance.isPressed('Arrow Left')) {
-      if (smokeCount < 1 && isGrounded) {
+      if (activeSmokeCount < 1 && isGrounded) {
         createSmoke(Offset(position.dx - 10, position.dy));
       }
 
@@ -118,7 +129,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     }
     if (InputManager.instance.isPressed('KeyD') ||
         InputManager.instance.isPressed('Arrow Right')) {
-      if (smokeCount < 1 && isGrounded) {
+      if (activeSmokeCount < 1 && isGrounded) {
         createSmoke(Offset(position.dx - 10, position.dy));
       }
 
@@ -144,18 +155,18 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     );
 
     if (other.name == 'winCheckpoint') {
-      (other as SpriteSheetWithCollider).play("win");
+      (other as SpriteSheetWithCollider).play('win');
     }
 
     // Removido: não marca grounded só por colidir com Tilemap; usa lado.
 
     if (collision.selfSide == CollisionSide.bottom) {
     } else if (collision.selfSide == CollisionSide.top) {
-      debugPrint("collision top: ${collision.selfSide}");
+      debugPrint('collision top: ${collision.selfSide}');
     } else if (collision.selfSide == CollisionSide.left) {
-      debugPrint("collision left: ${collision.selfSide}");
+      debugPrint('collision left: ${collision.selfSide}');
     } else if (collision.selfSide == CollisionSide.right) {
-      debugPrint("collision right: ${collision.selfSide}");
+      debugPrint('collision right: ${collision.selfSide}');
     }
 
     if (collision.selfSide == CollisionSide.bottom) {
@@ -183,26 +194,27 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
 
   @override
   void onCollisionStay(GameObject other, CollisionInfo collision) {
-    if (collision.selfSide == CollisionSide.bottom &&
-        other.name == 'PlayerGem' &&
-        other.name != 'PlayerGetArea') {
-      SceneManager.instance.current?.remove(other);
-      return;
-    } else if (collision.selfSide == CollisionSide.bottom &&
-        other.name != 'PlayerGem' &&
-        other.name != 'PlayerGetArea') {
-      isGrounded = true;
-      // Zera somente a componente vertical para não matar o movimento horizontal
-      setVelocity(Offset(velocity.dx, 0));
+    if (collision.selfSide == CollisionSide.bottom) {
+      if (other.name == 'PlayerGem') {
+        SceneManager.instance.current?.remove(other);
+        return;
+      }
+      if (other.name != 'PlayerGetArea') {
+        isGrounded = true;
+        // Zero out only the vertical component to preserve horizontal motion
+        setVelocity(Offset(velocity.dx, 0));
+      }
     }
   }
 
   @override
   void onAdd() {
     super.onAdd();
-    final playerGetArea = PlayerGetArea.withPlayer(this);
+    // Attach a circular trigger used to collect nearby items.
+    final playerGetArea = PlayerGetArea(this);
     attachObject(playerGetArea, const Offset(12, 12));
-    var row = 0;
+    int row = 0;
+    // Run animation
     addAnimation(
       SpriteAnimation(
         name: 'run',
@@ -224,7 +236,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       ),
     );
 
-    row = 1;
+    row = 1; // Hit reaction animation
     addAnimation(
       SpriteAnimation(
         name: 'hit',
@@ -241,7 +253,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       ),
     );
 
-    row = 2;
+    row = 2; // Double jump animation
     addAnimation(
       SpriteAnimation(
         name: 'doubleJump',
@@ -257,7 +269,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       ),
     );
 
-    row = 3;
+    row = 3; // Idle animation
     addAnimation(
       SpriteAnimation(
         name: 'idle',
@@ -278,7 +290,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       ),
     );
 
-    row = 4;
+    row = 4; // Wall jump (cling) animation
     addAnimation(
       SpriteAnimation(
         name: 'wallJump',
@@ -293,7 +305,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       ),
     );
 
-    row = 5;
+    row = 5; // Jump start animation
     addAnimation(
       SpriteAnimation(
         name: 'jump',
@@ -302,7 +314,7 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
       ),
     );
 
-    row = 6;
+    row = 6; // Falling animation
     addAnimation(
       SpriteAnimation(
         name: 'fall',

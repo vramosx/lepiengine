@@ -5,6 +5,7 @@ import 'package:lepiengine/engine/game_objects/tilemap.dart';
 import 'package:lepiengine_playground/examples/utils/constants.dart';
 import 'package:lepiengine_playground/examples/utils/json_utils.dart';
 
+/// Hosts and loads the tilemap for the platformer example.
 class PlatformMap extends GameObject {
   PlatformMap({
     super.name = 'PlatformMap',
