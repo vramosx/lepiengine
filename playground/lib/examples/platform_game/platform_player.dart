@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart' show Colors, debugPrint;
 import 'package:lepiengine/engine/core/audio_manager.dart';
@@ -29,15 +30,47 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
   final double jumpForce = -200.0;
   bool isFlipped = false;
   var smokeCount = 0;
+  bool isKnockback = false;
+  double _knockbackTimer = 0.0;
 
   void flip() {
     isFlipped = !isFlipped;
     flipX = !flipX;
   }
 
+  void applyKnockback({
+    required Offset sourcePosition,
+    double horizontalForce = 200.0,
+    double verticalImpulse = -150.0,
+    double duration = 0.2,
+  }) {
+    // Direção do obstáculo -> jogador em world space
+    final Offset dir = worldPivot - sourcePosition;
+    final double len2 = dir.dx * dir.dx + dir.dy * dir.dy;
+    final double invLen = len2 > 1e-8 ? 1.0 / math.sqrt(len2) : 0.0;
+    final Offset norm = invLen > 0
+        ? Offset(dir.dx * invLen, dir.dy * invLen)
+        : const Offset(1, 0);
+
+    // Aplica impulso e estado de knockback
+    setVelocity(Offset(norm.dx * horizontalForce, verticalImpulse));
+    isKnockback = true;
+    _knockbackTimer = duration;
+    isGrounded = false;
+    play('hit');
+  }
+
   @override
   void update(double dt) {
     super.update(dt);
+    if (isKnockback) {
+      _knockbackTimer -= dt;
+      if (_knockbackTimer <= 0) {
+        isKnockback = false;
+      }
+      return;
+    }
+
     _handleInput();
   }
 
@@ -109,6 +142,10 @@ class PlatformPlayer extends SpriteSheet with PhysicsBody, CollisionCallbacks {
     debugPrint(
       'Collision enter: ${other.runtimeType} - Normal: ${collision.normal}',
     );
+
+    if (other.name == 'winCheckpoint') {
+      (other as SpriteSheetWithCollider).play("win");
+    }
 
     // Removido: não marca grounded só por colidir com Tilemap; usa lado.
 

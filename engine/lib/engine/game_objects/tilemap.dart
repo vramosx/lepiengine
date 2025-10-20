@@ -56,6 +56,13 @@ class Tilemap extends GameObject {
   /// Depuração: desenhar colisões e colliders resultantes
   final bool debugCollisions;
 
+  /// Quando true, desenha a posição do grid (x,y) em cada tile renderizado
+  final bool showGridPosition;
+
+  // Cache de parágrafos para rótulos do grid, para evitar recriação a cada frame
+  final Map<int, Paragraph> _labelCache = <int, Paragraph>{};
+  final Map<int, Paragraph> _labelShadowCache = <int, Paragraph>{};
+
   /// Constrói um Tilemap no formato v1 (sem compat legado)
   Tilemap({
     required Map<String, Tileset> tilesetsById,
@@ -65,6 +72,7 @@ class Tilemap extends GameObject {
     int worldTileWidth = 32,
     int worldTileHeight = 32,
     bool debugCollisions = false,
+    bool showGridPosition = false,
     super.position,
     super.name,
   }) : tilesetsById = tilesetsById,
@@ -74,6 +82,7 @@ class Tilemap extends GameObject {
        worldTileWidth = worldTileWidth,
        worldTileHeight = worldTileHeight,
        debugCollisions = debugCollisions,
+       showGridPosition = showGridPosition,
        super(
          size: Size(
            gridWidth * worldTileWidth.toDouble(),
@@ -162,6 +171,32 @@ class Tilemap extends GameObject {
       }
     }
 
+    // Overlay opcional com coordenadas (x,y) para TODAS as células do grid.
+    if (showGridPosition) {
+      for (int y = 0; y < gridHeight; y++) {
+        for (int x = 0; x < gridWidth; x++) {
+          final double px = x * worldTileWidth.toDouble();
+          final double py = y * worldTileHeight.toDouble();
+
+          final Paragraph shadow = _getGridLabelParagraph(x, y, shadow: true);
+          canvas.drawParagraph(
+            shadow,
+            Offset(px, py + (worldTileHeight - shadow.height) / 2 + 1),
+          );
+
+          final Paragraph paragraph = _getGridLabelParagraph(
+            x,
+            y,
+            shadow: false,
+          );
+          canvas.drawParagraph(
+            paragraph,
+            Offset(px, py + (worldTileHeight - paragraph.height) / 2),
+          );
+        }
+      }
+    }
+
     // Overlay de debug de sólidos (pintura única por célula)
     if (debugCollisions) {
       final Set<math.Point<int>> solids = allSolidTiles;
@@ -185,6 +220,44 @@ class Tilemap extends GameObject {
     }
   }
 
+  Paragraph _getGridLabelParagraph(int x, int y, {bool shadow = false}) {
+    final int key = y * gridWidth + x;
+    final Map<int, Paragraph> cache = shadow ? _labelShadowCache : _labelCache;
+    final Paragraph? cached = cache[key];
+    if (cached != null) return cached;
+
+    final String label = '$x,$y';
+    final ParagraphBuilder builder =
+        ParagraphBuilder(
+            ParagraphStyle(
+              textAlign: TextAlign.center,
+              fontSize: worldTileHeight * 0.35,
+            ),
+          )
+          ..pushStyle(
+            TextStyle(
+              color: shadow ? const Color(0xFF000000) : const Color(0xFFFFFFFF),
+            ),
+          )
+          ..addText(label);
+    final Paragraph p = builder.build();
+    p.layout(ParagraphConstraints(width: worldTileWidth.toDouble()));
+    cache[key] = p;
+    return p;
+  }
+
+  /// Retorna a posição no mundo (top-left) da célula (x,y) do grid do mapa.
+  ///
+  /// A posição considera a transformação completa do `Tilemap` (posição,
+  /// rotação, escala e âncora) via `localToWorld`.
+  Offset worldPositionForTile(int x, int y) {
+    final Offset localTopLeft = Offset(
+      x * worldTileWidth.toDouble(),
+      y * worldTileHeight.toDouble(),
+    );
+    return localToWorld(localTopLeft);
+  }
+
   /// Constrói um Tilemap v1 a partir do JSON, usando tilesets já carregados
   /// (uso interno/avançado). Para carregamento automático assíncrono, use
   /// o método estático [fromJsonV1].
@@ -194,6 +267,7 @@ class Tilemap extends GameObject {
     Offset? position,
     String? name,
     bool debugCollisions = false,
+    bool showGridPosition = false,
     double? width,
     double? height,
   }) {
@@ -275,6 +349,7 @@ class Tilemap extends GameObject {
       worldTileWidth: worldTileWidth,
       worldTileHeight: worldTileHeight,
       debugCollisions: debugCollisions,
+      showGridPosition: showGridPosition,
       position: position,
       name: name,
     );
@@ -302,6 +377,7 @@ class Tilemap extends GameObject {
     Offset? position,
     String? name,
     bool debugCollisions = false,
+    bool showGridPosition = false,
     double? width,
     double? height,
   }) async {
@@ -341,6 +417,7 @@ class Tilemap extends GameObject {
       position: position,
       name: name,
       debugCollisions: debugCollisions,
+      showGridPosition: showGridPosition,
       width: width,
       height: height,
     );

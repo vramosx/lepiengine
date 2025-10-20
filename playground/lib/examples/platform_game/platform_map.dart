@@ -11,6 +11,8 @@ class PlatformMap extends GameObject {
     super.position = const Offset(0, 0),
   });
 
+  late final Tilemap tilemap;
+
   @override
   void onAdd() {
     super.onAdd();
@@ -29,7 +31,10 @@ class PlatformMap extends GameObject {
     final tilemapV1 = await Tilemap.fromJsonV1(
       jsonMap,
       name: 'PlatformTilemap',
+      showGridPosition: false,
     );
+
+    tilemap = tilemapV1;
 
     addChild(tilemapV1);
   }
